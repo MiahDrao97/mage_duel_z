@@ -1,0 +1,6 @@
+# executables and object files
+*.obj
+*.exe
+*.pdb
+zig-out/*
+zig-cache/*
