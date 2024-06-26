@@ -33,7 +33,10 @@ pub const TokenizerError = InnerErrors || import_tokens.ParseTokenError;
 /// Thus, there is no `deinit()` on this structure.
 pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     var tokens_list = try ArrayList(Token).initCapacity(self.allocator, script.len);
-    errdefer tokens_list.deinit();
+    errdefer {
+        Token.deinitAll(tokens_list.items);
+        tokens_list.deinit();
+    }
 
     var tokens_iter = Iterator(u8).from(script);
     var next_first: ?u8 = null;
@@ -52,7 +55,10 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
             break;
         }
 
-        const next_token: Token = try self.readNextToken(first, &tokens_iter, &next_first);
+        const next_token: Token = self.readNextToken(first, &tokens_iter, &next_first) catch |err| {
+            
+            return err;
+        };
         switch (next_token) {
             Token.comment => {
                 readUntilNewlineOrEof(&tokens_iter);
@@ -176,7 +182,6 @@ fn parseDiceToken(self: Tokenizer, chars: *ArrayList(u8), tokens: *Iterator(u8),
 
 fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
     var str: []const u8 = &[_]u8 { first };
-    std.debug.print("Parsing syntax: {s}", .{str});
     if (util.containerHasSlice(u8, &import_tokens.static_tokens, str)) {
         if (first == '=') {
             if (tokens.next()) |next| {
@@ -241,5 +246,6 @@ fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?
         return .{ .symbol = try StringToken.from(self.allocator, str) };
     }
     
+    std.debug.print("Encountered invalid syntax: '{s}'\n", .{ str });
     return TokenizerError.InvalidSyntax;
 }
