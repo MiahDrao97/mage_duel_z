@@ -42,7 +42,8 @@ pub const static_tokens: [32][]const u8 = [_][]const u8 {
 const InnerError = error {
     ParseDiceError,
     ParseDamageTypeError,
-    ParseBoolError
+    ParseBoolError,
+    InvalidToken
 };
 
 pub const ParseTokenError = InnerError || std.fmt.ParseIntError || Allocator.Error;
@@ -54,8 +55,8 @@ pub const StringToken = struct {
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*StringToken {
         var str_copy = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         _ = &str_copy;
+        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         const ptr: *StringToken = try allocator.create(StringToken);
@@ -120,8 +121,8 @@ pub const BooleanToken = struct {
         }
 
         var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         _ = &str_copy;
+        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         const ptr: *BooleanToken = try allocator.create(BooleanToken);
@@ -150,8 +151,8 @@ pub const DamageTypeToken = struct {
         const dmg_type: DamageType = try DamageType.from(str);
 
         var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         _ = &str_copy;
+        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         const ptr: *DamageTypeToken = try allocator.create(DamageTypeToken);
@@ -192,8 +193,8 @@ pub const DiceToken = struct {
         }
 
         var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        _ = &str_copy;
         errdefer allocator.free(str_copy);
+        _ = &str_copy;
         @memcpy(str_copy, str);
 
         const ptr: *DiceToken = try allocator.create(DiceToken);
@@ -226,8 +227,8 @@ pub const Token = union(enum) {
     comment: void,
     eof: void,
 
-    pub fn deinit(this: Token) void {
-        switch (this) {
+    pub fn deinit(self: Token) void {
+        switch (self) {
             inline
                 Token.identifier,
                 Token.numeric,
@@ -248,9 +249,67 @@ pub const Token = union(enum) {
     pub fn matches(a: Token, b: Token) bool {
         const a_tag: [:0]const u8 = @tagName(a);
         const b_tag: [:0]const u8 = @tagName(b);
-        const tag_info = Token.eof;
-        _ = &tag_info;
 
         return std.mem.eql(u8, a_tag, b_tag);
+    }
+
+    pub fn toString(this: Token) ?[]const u8 {
+        return switch (this) {
+            Token.identifier => |x| x.*.value,
+            Token.numeric => |x| x.*.string_value,
+            Token.symbol => |x| x.*.value,
+            Token.boolean => |x| x.*.string_value,
+            Token.dice => |x| x.*.string_value,
+            Token.damageType => |x| x.*.string_value,
+            else => null
+        };
+    }
+
+    pub fn stringEquals(self: Token, str: []const u8) bool {
+        const self_str: ?[]const u8 = self.toString();
+        if (self_str == null) {
+            return false;
+        }
+        return std.mem.eql(u8, self_str.?, str);
+    }
+
+    pub fn expectStringEquals(self: Token, str: []const u8) ParseTokenError!void {
+        if (!self.stringEquals(str)) {
+            return ParseTokenError.InvalidToken;
+        }
+    }
+
+    pub fn expectMatches(self: Token, tagName: []const u8) ParseTokenError!void {
+        if (!std.mem.eql(u8, @tagName(self), tagName)) {
+            return ParseTokenError.InvalidToken;
+        }
+    }
+
+    pub fn getNumericValue(self: Token) ?u32 {
+        return switch (self) {
+            Token.numeric => |n| n.*.value,
+            else => null
+        };
+    }
+
+    pub fn getBoolValue(self: Token) ?bool {
+        return switch (self) {
+            Token.boolean => |b| b.*.value,
+            else => null
+        };
+    }
+
+    pub fn getDamageTypeValue(self: Token) ?DamageType {
+        return switch (self) {
+            Token.damageType => |d| d.*.value,
+            else => null
+        };
+    }
+
+    pub fn getDiceValue(self: Token) ?Dice {
+        return switch (self) {
+            Token.damageType => |d| d.getDice(),
+            else => null
+        };
     }
 };

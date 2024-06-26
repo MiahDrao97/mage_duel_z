@@ -33,7 +33,7 @@ pub const TokenizerError = InnerErrors || import_tokens.ParseTokenError;
 /// Thus, there is no `deinit()` on this structure.
 pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     var tokens_list = try ArrayList(Token).initCapacity(self.allocator, script.len);
-    // no defer-free necessary because we're returning `toOwnedSlice()` at the end
+    errdefer tokens_list.deinit();
 
     var tokens_iter = Iterator(u8).from(script);
     var next_first: ?u8 = null;
@@ -42,8 +42,10 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
         var first: u8 = undefined;
 
         if (next_first) |a| {
-            first = a;
             next_first = null;
+            if (!util.isWhiteSpace(a)) {
+                first = a;
+            }
         } else if (consumeWhitespace(&tokens_iter)) |b| {
             first = b;
         } else {
@@ -173,7 +175,8 @@ fn parseDiceToken(self: Tokenizer, chars: *ArrayList(u8), tokens: *Iterator(u8),
 }
 
 fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
-    var str: []const u8 = &[_]u8{ first };
+    var str: []const u8 = &[_]u8 { first };
+    std.debug.print("Parsing syntax: {s}", .{str});
     if (util.containerHasSlice(u8, &import_tokens.static_tokens, str)) {
         if (first == '=') {
             if (tokens.next()) |next| {
@@ -218,6 +221,15 @@ fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?
             if (tokens.next()) |next| {
                 if (next == '=') {
                     str = "~=";
+                    return .{ .symbol = try StringToken.from(self.allocator, str) };
+                } else {
+                    next_first.* = next;
+                }
+            }
+        } else if (first == '+') {
+            if (tokens.next()) |next| {
+                if (next == '!') {
+                    str = "+!";
                     return .{ .symbol = try StringToken.from(self.allocator, str) };
                 } else {
                     next_first.* = next;
