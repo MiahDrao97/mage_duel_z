@@ -48,6 +48,8 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
             next_first = null;
             if (!util.isWhiteSpace(a)) {
                 first = a;
+            } else {
+                continue;
             }
         } else if (consumeWhitespace(&tokens_iter)) |b| {
             first = b;
@@ -56,7 +58,10 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
         }
 
         const next_token: Token = self.readNextToken(first, &tokens_iter, &next_first) catch |err| {
-            
+            std.debug.print("Successfully parsed:\n", .{});
+            for (tokens_list.items) |token| {
+                std.debug.print("\t'{s}'\n", .{ token.toString() orelse "[null]" });
+            }
             return err;
         };
         switch (next_token) {

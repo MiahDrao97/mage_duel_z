@@ -3,7 +3,7 @@ pub const Iterator = @import("iterator.zig").Iterator;
 
 pub fn isWhiteSpace(char: u8) bool {
     return switch(char) {
-        inline ' ', '\r', '\t', '\n' => true,
+        inline 0...' ' => true,
         else => false
     };
 }
