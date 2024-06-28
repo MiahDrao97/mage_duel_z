@@ -1,5 +1,6 @@
 const std = @import("std");
 const types = @import("game_zones").types;
+const Iterator = @import("util").Iterator;
 const DamageType = types.DamageType;
 const Dice = types.Dice;
 const Allocator = std.mem.Allocator;
@@ -312,5 +313,23 @@ pub const Token = union(enum) {
             Token.dice => |d| d.getDice(),
             else => null
         };
+    }
+};
+
+pub const TokenIterator = struct {
+    internal_iter: Iterator(Token),
+
+    pub fn from(tokens: []Token) TokenIterator {
+        return .{ .internal_iter = Iterator(Token).from(tokens) };
+    }
+
+    pub fn next(self: TokenIterator) ?Token {
+        if (self.internal_iter.next()) |t| {
+            return switch (t) {
+                inline Token.comment, Token.eof => null,
+                else => t
+            };
+        }
+        return null;
     }
 };

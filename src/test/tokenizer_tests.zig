@@ -1,5 +1,6 @@
-const testing = @import("std").testing;
-const debug = @import("std").debug;
+const std = @import("std");
+const testing = std.testing;
+const debug = std.debug;
 const parsing = @import("parsing");
 const Tokenizer = parsing.Tokenizer;
 const Token = parsing.Token;
@@ -398,5 +399,23 @@ test "tokenize real script" {
 
         try tokens[25].expectMatches(@tagName(Token.eof));
         try testing.expect(tokens[25].toString() == null);
+    }
+    {
+        // with arena allocator
+        const script: []const u8 =
+        \\#attack
+        \\// firebolt
+        \\[1]: {
+        \\  $ = target(1 from Player);
+        \\  1d6+4 fire => $;
+        \\}
+        ;
+
+        var arena = std.heap.ArenaAllocator.init(testing.allocator);
+        defer arena.deinit();
+
+        // all freeing is handled by the arena
+        const tokenizer = Tokenizer.init(arena.allocator());
+        _ = try tokenizer.tokenize(script);
     }
 }
