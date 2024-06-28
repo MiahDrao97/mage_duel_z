@@ -224,7 +224,7 @@ pub const Token = union(enum) {
     numeric: *NumericToken,
     boolean: *BooleanToken,
     dice: *DiceToken,
-    damageType: *DamageTypeToken,
+    damage_type: *DamageTypeToken,
     comment: void,
     eof: void,
 
@@ -236,7 +236,7 @@ pub const Token = union(enum) {
                 Token.symbol,
                 Token.boolean,
                 Token.dice,
-                Token.damageType => |x| x.deinit(),
+                Token.damage_type => |x| x.deinit(),
             else => { }
         }
     }
@@ -261,7 +261,7 @@ pub const Token = union(enum) {
             Token.symbol => |x| x.*.value,
             Token.boolean => |x| x.*.string_value,
             Token.dice => |x| x.*.string_value,
-            Token.damageType => |x| x.*.string_value,
+            Token.damage_type => |x| x.*.string_value,
             else => null
         };
     }
@@ -303,7 +303,7 @@ pub const Token = union(enum) {
 
     pub fn getDamageTypeValue(self: Token) ?DamageType {
         return switch (self) {
-            Token.damageType => |d| d.*.value,
+            Token.damage_type => |d| d.*.value,
             else => null
         };
     }

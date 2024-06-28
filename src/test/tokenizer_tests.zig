@@ -76,7 +76,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("fire");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Fire);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -90,7 +90,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("lightning");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Lightning);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -104,7 +104,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("divine");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Divine);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -118,7 +118,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("force");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Force);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -132,7 +132,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("acid");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Acid);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -146,7 +146,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("necrotic");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Necrotic);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -160,7 +160,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("ice");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Ice);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -174,7 +174,7 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("psychic");
-        try tokens[0].expectMatches(@tagName(Token.damageType));
+        try tokens[0].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Psychic);
         try tokens[1].expectMatches(@tagName(Token.eof));
     }
@@ -382,7 +382,7 @@ test "tokenize real script" {
         try testing.expect(tokens[19].getNumericValue().? == 4);
 
         try tokens[20].expectStringEquals("fire");
-        try tokens[20].expectMatches(@tagName(Token.damageType));
+        try tokens[20].expectMatches(@tagName(Token.damage_type));
         try testing.expect(tokens[20].getDamageTypeValue().? == DamageType.Fire);
         
         try tokens[21].expectStringEquals("=>");

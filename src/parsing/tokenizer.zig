@@ -137,7 +137,7 @@ fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: *Iterator(u8), nex
     
     if (DamageTypeToken.from(self.allocator, str)) |dmg_type_token| {
         // damage type
-        return .{ .damageType = dmg_type_token };
+        return .{ .damage_type = dmg_type_token };
     } else |_| { }
     
     if (BooleanToken.from(self.allocator, str)) |bool_token| {
