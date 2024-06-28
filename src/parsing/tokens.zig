@@ -54,7 +54,7 @@ pub const StringToken = struct {
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*StringToken {
-        var str_copy = try allocator.alloc(u8, str.len);
+        var str_copy: []u8 = try allocator.alloc(u8, str.len);
         _ = &str_copy;
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
@@ -275,6 +275,7 @@ pub const Token = union(enum) {
 
     pub fn expectStringEquals(self: Token, str: []const u8) ParseTokenError!void {
         if (!self.stringEquals(str)) {
+            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.toString().?, str });
             return ParseTokenError.InvalidToken;
         }
     }
@@ -308,7 +309,7 @@ pub const Token = union(enum) {
 
     pub fn getDiceValue(self: Token) ?Dice {
         return switch (self) {
-            Token.damageType => |d| d.getDice(),
+            Token.dice => |d| d.getDice(),
             else => null
         };
     }

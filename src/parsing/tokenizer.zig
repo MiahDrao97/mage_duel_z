@@ -58,9 +58,9 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
         }
 
         const next_token: Token = self.readNextToken(first, &tokens_iter, &next_first) catch |err| {
-            std.debug.print("Successfully parsed:\n", .{});
+            std.log.debug("Successfully parsed:\n", .{});
             for (tokens_list.items) |token| {
-                std.debug.print("\t'{s}'\n", .{ token.toString() orelse "[null]" });
+                std.log.debug("\t'{s}'\n", .{ token.toString() orelse "[null]" });
             }
             return err;
         };
@@ -251,6 +251,6 @@ fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?
         return .{ .symbol = try StringToken.from(self.allocator, str) };
     }
     
-    std.debug.print("Encountered invalid syntax: '{s}'\n", .{ str });
+    std.log.err("Encountered invalid syntax: '{s}'\n", .{ str });
     return TokenizerError.InvalidSyntax;
 }

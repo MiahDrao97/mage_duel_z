@@ -261,4 +261,142 @@ test "tokenize syntax" {
         try tokens[1].expectMatches(@tagName(Token.symbol));
         try tokens[2].expectMatches(@tagName(Token.eof));
     }
+    {
+        const script = "=> >= <= == ~=";
+        const tokenizer = Tokenizer.init(testing.allocator);
+
+        const tokens: []Token = try tokenizer.tokenize(script);
+        defer testing.allocator.free(tokens);
+        defer Token.deinitAll(tokens);
+
+        try testing.expect(tokens.len == 6);
+        try tokens[0].expectStringEquals("=>");
+        try tokens[0].expectMatches(@tagName(Token.symbol));
+        try tokens[1].expectStringEquals(">=");
+        try tokens[1].expectMatches(@tagName(Token.symbol));
+        try tokens[2].expectStringEquals("<=");
+        try tokens[2].expectMatches(@tagName(Token.symbol));
+        try tokens[3].expectStringEquals("==");
+        try tokens[3].expectMatches(@tagName(Token.symbol));
+        try tokens[4].expectStringEquals("~=");
+        try tokens[4].expectMatches(@tagName(Token.symbol));
+        try tokens[5].expectMatches(@tagName(Token.eof));
+    }
+}
+test "tokenize comment" {
+    {
+        const script = "// this is a comment";
+        const tokenizer = Tokenizer.init(testing.allocator);
+
+        const tokens: []Token = try tokenizer.tokenize(script);
+        defer testing.allocator.free(tokens);
+        defer Token.deinitAll(tokens);
+
+        // comments are not added to the token list
+        try testing.expect(tokens.len == 1);
+        try tokens[0].expectMatches(@tagName(Token.eof));
+    }
+}
+test "tokenize real script" {
+    {
+        const script: []const u8 =
+        \\#attack
+        \\// firebolt
+        \\[1]: {
+        \\  $ = target(1 from Player);
+        \\  1d6+4 fire => $;
+        \\}
+        ;
+        const tokenizer = Tokenizer.init(testing.allocator);
+
+        const tokens: []Token = try tokenizer.tokenize(script);
+        defer testing.allocator.free(tokens);
+        defer Token.deinitAll(tokens);
+
+        try testing.expect(tokens.len == 26);
+
+        try tokens[0].expectStringEquals("#");
+        try tokens[0].expectMatches(@tagName(Token.symbol));
+
+        try tokens[1].expectStringEquals("attack");
+        try tokens[1].expectMatches(@tagName(Token.identifier));
+        
+        try tokens[2].expectStringEquals("[");
+        try tokens[2].expectMatches(@tagName(Token.symbol));
+        
+        try tokens[3].expectStringEquals("1");
+        try tokens[3].expectMatches(@tagName(Token.numeric));
+        try testing.expect(tokens[3].getNumericValue().? == 1);
+
+        try tokens[4].expectStringEquals("]");
+        try tokens[4].expectMatches(@tagName(Token.symbol));
+
+        try tokens[5].expectStringEquals(":");
+        try tokens[5].expectMatches(@tagName(Token.symbol));
+        
+        try tokens[6].expectStringEquals("{");
+        try tokens[6].expectMatches(@tagName(Token.symbol));
+
+        try tokens[7].expectStringEquals("$");
+        try tokens[7].expectMatches(@tagName(Token.identifier));
+
+        try tokens[8].expectStringEquals("=");
+        try tokens[8].expectMatches(@tagName(Token.symbol));
+
+        try tokens[9].expectStringEquals("target");
+        try tokens[9].expectMatches(@tagName(Token.symbol));
+
+        try tokens[10].expectStringEquals("(");
+        try tokens[10].expectMatches(@tagName(Token.symbol));
+
+        try tokens[11].expectStringEquals("1");
+        try tokens[11].expectMatches(@tagName(Token.numeric));
+        try testing.expect(tokens[11].getNumericValue().? == 1);
+        
+        try tokens[12].expectStringEquals("from");
+        try tokens[12].expectMatches(@tagName(Token.symbol));
+
+        try tokens[13].expectStringEquals("Player");
+        try tokens[13].expectMatches(@tagName(Token.identifier));
+
+        try tokens[14].expectStringEquals(")");
+        try tokens[14].expectMatches(@tagName(Token.symbol));
+
+        try tokens[15].expectStringEquals(";");
+        try tokens[15].expectMatches(@tagName(Token.symbol));
+        
+        try tokens[16].expectStringEquals("1");
+        try tokens[16].expectMatches(@tagName(Token.numeric));
+        try testing.expect(tokens[16].getNumericValue().? == 1);
+
+        try tokens[17].expectStringEquals("d6");
+        try tokens[17].expectMatches(@tagName(Token.dice));
+        try testing.expect(tokens[17].getDiceValue().?.sides == 6);
+
+        try tokens[18].expectStringEquals("+");
+        try tokens[18].expectMatches(@tagName(Token.symbol));
+
+        try tokens[19].expectStringEquals("4");
+        try tokens[19].expectMatches(@tagName(Token.numeric));
+        try testing.expect(tokens[19].getNumericValue().? == 4);
+
+        try tokens[20].expectStringEquals("fire");
+        try tokens[20].expectMatches(@tagName(Token.damageType));
+        try testing.expect(tokens[20].getDamageTypeValue().? == DamageType.Fire);
+        
+        try tokens[21].expectStringEquals("=>");
+        try tokens[21].expectMatches(@tagName(Token.symbol));
+
+        try tokens[22].expectStringEquals("$");
+        try tokens[22].expectMatches(@tagName(Token.identifier));
+
+        try tokens[23].expectStringEquals(";");
+        try tokens[23].expectMatches(@tagName(Token.symbol));
+
+        try tokens[24].expectStringEquals("}");
+        try tokens[24].expectMatches(@tagName(Token.symbol));
+
+        try tokens[25].expectMatches(@tagName(Token.eof));
+        try testing.expect(tokens[25].toString() == null);
+    }
 }

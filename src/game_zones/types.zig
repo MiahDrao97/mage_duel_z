@@ -45,7 +45,7 @@ pub const Dice = struct {
         }
         return Dice {
             .sides = sides,
-            .rand = Random.DefaultPrng.random()
+            .rand = std.crypto.random
         };
     }
 
