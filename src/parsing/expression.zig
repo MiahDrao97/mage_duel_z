@@ -2,6 +2,7 @@ const std = @import("std");
 
 const imports = struct {
     usingnamespace @import("tokens.zig");
+    usingnamespace @import("symbol_table.zig");
     usingnamespace @import("util");
     usingnamespace @import("game_zones");
 };
@@ -11,6 +12,7 @@ const Dice = imports.types.Dice;
 
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
+const SymbolTable = imports.SymbolTable;
 
 pub const ExpressionResult = union(enum) {
     integer: i32,
@@ -26,10 +28,23 @@ pub const ListResult = struct {
 };
 
 pub const EvaluateExprErr = error {
-
+    AllocatorRequired
 };
 
 pub const Expression = @This();
 
-this: *anyopaque,
-evaluate: *const fn (*anyopaque) EvaluateExprErr!ExpressionResult,
+ptr: *anyopaque,
+requires_alloc: bool,
+evaluateFn: *const fn (*anyopaque, SymbolTable) EvaluateExprErr!ExpressionResult,
+evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) EvaluateExprErr!ExpressionResult,
+
+pub fn evaluate(self: Expression, symbol_table: SymbolTable) EvaluateExprErr!ExpressionResult {
+    if (self.requires_alloc) {
+        return EvaluateExprErr.AllocatorRequired;
+    }
+    return self.evaluateFn(self.ptr, symbol_table);
+}
+
+pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) EvaluateExprErr!ExpressionResult {
+    return self.evaluateAllocFn(allocator, self.ptr, symbol_table);
+}
