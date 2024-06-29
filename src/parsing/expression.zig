@@ -14,7 +14,7 @@ const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
 const SymbolTable = imports.SymbolTable;
 
-pub const ExpressionResult = union(enum) {
+pub const Result = union(enum) {
     integer: i32,
     boolean: bool,
     damage_type: DamageType,
@@ -24,10 +24,10 @@ pub const ExpressionResult = union(enum) {
 };
 
 pub const ListResult = struct {
-    items: []ExpressionResult,
+    items: []Result,
 };
 
-pub const EvaluateExprErr = error {
+pub const Error = error {
     AllocatorRequired
 };
 
@@ -35,16 +35,22 @@ pub const Expression = @This();
 
 ptr: *anyopaque,
 requires_alloc: bool,
-evaluateFn: *const fn (*anyopaque, SymbolTable) EvaluateExprErr!ExpressionResult,
-evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) EvaluateExprErr!ExpressionResult,
+evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
+evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) Error!Result,
 
-pub fn evaluate(self: Expression, symbol_table: SymbolTable) EvaluateExprErr!ExpressionResult {
+pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
     if (self.requires_alloc) {
-        return EvaluateExprErr.AllocatorRequired;
+        return Error.AllocatorRequired;
     }
     return self.evaluateFn(self.ptr, symbol_table);
 }
 
-pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) EvaluateExprErr!ExpressionResult {
+pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) Error!Result {
     return self.evaluateAllocFn(allocator, self.ptr, symbol_table);
+}
+
+/// Simply returns `AllocatorRequired` error.
+/// Used for the various expressions that need an allocator but also must implement `evaluteFn`.
+pub fn errRequireAlloc(_: *anyopaque, _: SymbolTable) Error!Result {
+    return Error.AllocatorRequired;
 }
