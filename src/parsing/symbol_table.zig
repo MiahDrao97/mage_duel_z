@@ -1,7 +1,7 @@
 const std = @import("std");
-const ExpressionResult = @import("expression.zig").Result;
+const Expression = @import("expression.zig");
 
-const HashMap = std.AutoHashMap([]const u8, ExpressionResult);
+const HashMap = std.AutoHashMap([]const u8, Expression.Result);
 
 const Allocator = std.mem.Allocator;
 
@@ -17,11 +17,11 @@ pub fn init(allocator: Allocator) SymbolTable {
     };
 }
 
-pub fn registerSymbol(self: SymbolTable, name: []const u8, val: ExpressionResult) Allocator.Error!void {
+pub fn registerSymbol(self: SymbolTable, name: []const u8, val: Expression.Result) Allocator.Error!void {
     self.symbols.put(name, val);
 }
 
-pub fn getSymbol(self: SymbolTable, name: []const u8) ?ExpressionResult {
+pub fn getSymbol(self: SymbolTable, name: []const u8) ?Expression.Result {
     return self.symbols.get(name);
 }
 

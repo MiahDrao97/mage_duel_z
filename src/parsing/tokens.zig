@@ -78,7 +78,7 @@ pub const StringToken = struct {
 pub const NumericToken = struct {
     string_value: []const u8,
     allocator: Allocator,
-    value: u32,
+    value: u16,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*NumericToken {
@@ -87,7 +87,7 @@ pub const NumericToken = struct {
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
-        const num: u32 = try std.fmt.parseUnsigned(u32, str_copy, 10);
+        const num: u16 = try std.fmt.parseUnsigned(u16, str_copy, 10);
 
         const ptr: *NumericToken = try allocator.create(NumericToken);
         ptr.* = NumericToken {
@@ -287,7 +287,7 @@ pub const Token = union(enum) {
         }
     }
 
-    pub fn getNumericValue(self: Token) ?u32 {
+    pub fn getNumericValue(self: Token) ?u16 {
         return switch (self) {
             Token.numeric => |n| n.*.value,
             else => null
@@ -317,10 +317,17 @@ pub const Token = union(enum) {
 };
 
 pub const TokenIterator = struct {
-    internal_iter: Iterator(Token),
+    allocator: Allocator,
+    internal_iter: *Iterator(Token),
 
-    pub fn from(tokens: []Token) TokenIterator {
-        return .{ .internal_iter = Iterator(Token).from(tokens) };
+    pub fn from(allocator: Allocator, tokens: []Token) Allocator.Error!TokenIterator {
+        const iter_ptr: *Iterator(Token) = try allocator.create(Iterator(Token));
+        iter_ptr.* = Iterator(Token).from(tokens);
+
+        return .{
+            .allocator = allocator,
+            .internal_iter = iter_ptr
+        };
     }
 
     pub fn next(self: TokenIterator) ?Token {
@@ -331,5 +338,10 @@ pub const TokenIterator = struct {
             };
         }
         return null;
+    }
+
+    pub fn deinit(self: *TokenIterator) void {
+        self.allocator.destroy(self.internal_iter);
+        self.* = undefined;
     }
 };

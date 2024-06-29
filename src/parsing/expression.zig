@@ -25,6 +25,7 @@ pub const Result = union(enum) {
 
 pub const ListResult = struct {
     items: []Result,
+    // needs add functions and stuff
 };
 
 pub const Error = error {
