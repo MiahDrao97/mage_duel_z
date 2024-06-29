@@ -46,3 +46,32 @@ pub const IntegerLiteral = struct {
         };
     }
 };
+
+pub const BooleanLiteral = struct {
+    val: bool,
+
+    pub fn from(iter: TokenIterator) ParseError!BooleanLiteral {
+        if (iter.next()) |token| {
+            if (token.getBoolValue()) |b| {
+                return BooleanLiteral { .val = b };
+            }
+        }
+        return ParseError.UnexpectedToken;
+    }
+
+    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(this_ptr));
+        return .{ .boolean = self.val };
+    }
+
+    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        return evaluate(this_ptr, symbol_table);
+    }
+
+    pub fn expr(self: *BooleanLiteral) Expression {
+        return Expression {
+            .ptr = self,
+            .requires_alloc = false,
+        };
+    }
+};
