@@ -13,6 +13,9 @@ const Expression = imports.Expression;
 const Token = imports.Token;
 const TokenIterator = imports.TokenIterator;
 const SymbolTable = imports.SymbolTable;
+const DamageType = imports.types.DamageType;
+const Dice = imports.types.Dice;
+const ParseTokenError = imports.ParseTokenError;
 
 pub const ParseError = error {
     UnexpectedToken
@@ -74,4 +77,66 @@ pub const BooleanLiteral = struct {
             .requires_alloc = false,
         };
     }
+};
+
+pub const DamageTypeLiteral = struct {
+    val: DamageType,
+
+    pub fn from(iter: TokenIterator) ParseError!DamageTypeLiteral {
+        if (iter.next()) |token| {
+            if (token.getDamageTypeValue()) |d| {
+                return DamageTypeLiteral { .val = d };
+            }
+        }
+        return ParseError.UnexpectedToken;
+    }
+
+    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
+        const self: *DamageTypeLiteral = @ptrCast(@alignCast(this_ptr));
+        return .{ .boolean = self.val };
+    }
+
+    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        return evaluate(this_ptr, symbol_table);
+    }
+
+    pub fn expr(self: *DamageTypeLiteral) Expression {
+        return Expression {
+            .ptr = self,
+            .requires_alloc = false,
+        };
+    }
+};
+
+pub const DiceLiteral = struct {
+    val: Dice,
+
+    pub fn from(iter: TokenIterator) ParseError!DiceLiteral {
+        if (iter.next()) |token| {
+            if (token.getDiceValue()) |d| {
+                return DiceLiteral { .val = d };
+            }
+        }
+        return ParseError.UnexpectedToken;
+    }
+
+    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
+        const self: *DiceLiteral = @ptrCast(@alignCast(this_ptr));
+        return .{ .boolean = self.val };
+    }
+
+    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        return evaluate(this_ptr, symbol_table);
+    }
+
+    pub fn expr(self: *DiceLiteral) Expression {
+        return Expression {
+            .ptr = self,
+            .requires_alloc = false,
+        };
+    }
+};
+
+pub const ListLiteral = struct {
+    vals: []Expression,
 };

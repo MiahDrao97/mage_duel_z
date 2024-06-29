@@ -44,7 +44,8 @@ const InnerError = error {
     ParseDiceError,
     ParseDamageTypeError,
     ParseBoolError,
-    InvalidToken
+    InvalidToken,
+    EOF
 };
 
 pub const ParseTokenError = InnerError || std.fmt.ParseIntError || Allocator.Error;
@@ -338,6 +339,22 @@ pub const TokenIterator = struct {
             };
         }
         return null;
+    }
+
+    pub fn require(self: TokenIterator, str_value: []const u8) ParseTokenError!Token {
+        if (self.internal_iter.next()) |t| {
+            try t.expectStringEquals(str_value);
+            return t;
+        }
+        return ParseTokenError.EOF;
+    }
+
+    pub fn requireType(self: TokenIterator, tag_name: []const u8) ParseTokenError!Token {
+        if (self.internal_iter.next()) |t| {
+            try t.expectMatches(tag_name);
+            return t;
+        }
+        return ParseTokenError.EOF;
     }
 
     pub fn deinit(self: *TokenIterator) void {
