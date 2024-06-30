@@ -1,7 +1,7 @@
 const std = @import("std");
 const Expression = @import("expression.zig");
 
-const HashMap = std.AutoHashMap([]const u8, Expression.Result);
+const HashMap = std.StringHashMap(Expression.Result);
 
 const Allocator = std.mem.Allocator;
 

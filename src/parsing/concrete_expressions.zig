@@ -165,11 +165,7 @@ pub const ListLiteral = struct {
             evaluated[i] = try self.vals[i].evaluateAlloc(allocator, symbol_table);
         }
 
-        return .{
-            .list = Expression.ListResult {
-                .items = evaluated
-            }
-        };
+        return .{ .list = try Expression.ListResult.from(allocator, evaluated) };
     }
 
     pub fn expr(self: *ListLiteral) Expression {
@@ -293,4 +289,13 @@ pub const UnaryExpression = struct {
             .evaluateAllocFn = &evaluateAlloc
         };
     }
+};
+
+pub const AdditiveExpression = struct {
+    lhs: Expression,
+    rhs: Expression,
+    op: Token,
+    allocator: Allocator,
+
+
 };

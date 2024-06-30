@@ -47,11 +47,177 @@ pub const Result = union(enum) {
 
 pub const ListResult = struct {
     items: []Result,
-    // needs add functions and stuff
+    /// The type of the contained elements. Will be null if the list is empty.
+    component_type: ?type,
+    allocator: Allocator,
 
-    // TODO: need component type (how to handle empty?)
+    /// Initialize a `ListResult` with elements and the allocator that allocated them.
+    pub fn from(allocator: Allocator, elements: []Result) Error!ListResult {
+        if (elements.len == 0) {
+            return .{
+                .items = elements,
+                .component_type = null,
+                .allocator = allocator
+            };
+        }
+
+        const ComponentType: type = elements[0].UnderlyingType();
+        for (elements) |e| {
+            if (e.UnderlyingType() != ComponentType) {
+                return Error.ElementTypesVary;
+            }
+        }
+        return .{
+            .items = elements,
+            .component_type = ComponentType,
+            .allocator = allocator
+        };
+    }
+
+    /// Takes two `ListResult`'s, combining their items.
+    /// This results in a new `ListResult`, so be sure to destroy the other two.
+    pub fn append(self: ListResult, other: ListResult) Error!ListResult {
+        const new_results: []Result = try self.allocator.alloc(Result, self.items.len + other.items.len);
+        errdefer self.allocator.free(new_results);
+
+        // copy everything
+        var i: usize = 0;
+        for (self.items) |item| {
+            new_results[i] = item;
+            i += 1;
+        }
+        for (other.items) |item| {
+            new_results[i] = item;
+            i += 1;
+        }
+
+        const new_list: ListResult = try from(self.allocator, new_results);
+        
+        return new_list;
+    }
+
+    /// Takes two `ListResult`'s, combining their items, but only items not already contained in `self`.
+    /// This results in a new `ListResult`, so be sure to destroy the other two.
+    pub fn appendUnique(self: ListResult, other: ListResult) Error!ListResult {
+        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        defer hash_set.deinit();
+
+        // copy the items
+        for (self.items) |item| {
+            hash_set.put(item, void);
+        }
+        for (other.items) |item| {
+            hash_set.put(item, void);
+        }
+
+        const combined_items: []Result = hash_set.keys();
+        // copy the keys (before we nuke the above hash set)
+        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
+        _ = &copied_items;
+        errdefer self.allocator.free(copied_items);
+        @memcpy(copied_items, combined_items);
+
+        return try ListResult.from(self.allocator, copied_items);
+    }
+
+    /// Creates a new `ListResult` with `item` at the end.
+    /// Be sure to destroy the original `ListResult` afterward.
+    pub fn appendOne(self: ListResult, new: Result) Error!ListResult {
+        const new_results: []Result = try self.allocator.alloc(Result, self.items.len + 1);
+        errdefer self.allocator.free(new_results);
+
+        // copy everything
+        var i: usize = 0;
+        for (self.items) |item| {
+            new_results[i] = item;
+            i += 1;
+        }
+        new_results[i] = new;
+
+        const new_list: ListResult = try from(self.allocator, new_results);
+        return new_list;
+    }
+
+    /// Creates a new `ListResult` with `item` at the end, ensuring each element is unique.
+    /// Be sure to destroy the original `ListResult` afterward.
+    pub fn appendOneUnique(self: ListResult, new: Result) Error!ListResult {
+        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        defer hash_set.deinit();
+
+        // copy the items
+        for (self.items) |item| {
+            hash_set.put(item, void);
+        }
+        hash_set.put(new, void);
+
+        const combined_items: []Result = hash_set.keys();
+        // copy the keys (before we nuke the above hash set)
+        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
+        _ = &copied_items;
+        errdefer self.allocator.free(copied_items);
+        @memcpy(copied_items, combined_items);
+
+        return try ListResult.from(self.allocator, copied_items);
+    }
+
+    /// Creates a new `ListResult` with items in `other` removed from `self`.
+    /// Be sure to destroy the original `ListResult`'s afterward.
+    /// As a side effect, the new `ListResult` will only contain unique items, even if nothing is removed.
+    pub fn remove(self: ListResult, other: ListResult) Error!ListResult {
+        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        defer hash_set.deinit();
+
+        // copy the items from self
+        for (self.items) |item| {
+            hash_set.put(item, void);
+        }
+        // remove the items from other
+        for (other.items) |item| {
+            hash_set.remove(item, void);
+        }
+
+        const combined_items: []Result = hash_set.keys();
+        // copy the keys (before we nuke the above hash set)
+        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
+        _ = &copied_items;
+        errdefer self.allocator.free(copied_items);
+        @memcpy(copied_items, combined_items);
+
+        return try ListResult.from(self.allocator, copied_items);
+    }
+
+    /// Creates a new `ListResult` with `to_remove` removed from `self`.
+    /// Be sure to destroy the original `ListResult` afterward.
+    /// As a side effect, the new `ListResult` will only contain unique items, even if nothing is removed.
+    pub fn removeOne(self: ListResult, to_remove: Result) Error!ListResult {
+        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        defer hash_set.deinit();
+
+        // copy the items from self
+        for (self.items) |item| {
+            hash_set.put(item, void);
+        }
+        // remove the items from other
+        hash_set.remove(to_remove);
+
+        const combined_items: []Result = hash_set.keys();
+        // copy the keys (before we nuke the above hash set)
+        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
+        _ = &copied_items;
+        errdefer self.allocator.free(copied_items);
+        @memcpy(copied_items, combined_items);
+
+        return try ListResult.from(self.allocator, copied_items);
+    }
+
+    pub fn deinit(self: *ListResult) void {
+        self.allocator.free(self.items);
+        self.* = undefined;
+    }
 };
 
+/// Allowed labels on cards.
+/// Labels are annotations that give cards attributes.
 pub const Label = enum {
     one_time_use,
     attack,

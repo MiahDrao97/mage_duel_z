@@ -97,18 +97,18 @@ pub fn build(b: *std.Build) void {
     tokenizer_tests.root_module.addImport("game_zones", game_zones);
     tokenizer_tests.root_module.addImport("parsing", parsing);
 
-    const result_tests = b.addTest(.{
-        .root_source_file = b.path("src/test/result_tests.zig"),
+    const scratch_tests = b.addTest(.{
+        .root_source_file = b.path("src/test/scratch_tests.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    result_tests.root_module.addImport("util", util);
-    result_tests.root_module.addImport("game_zones", game_zones);
-    result_tests.root_module.addImport("parsing", parsing);
+    scratch_tests.root_module.addImport("util", util);
+    scratch_tests.root_module.addImport("game_zones", game_zones);
+    scratch_tests.root_module.addImport("parsing", parsing);
 
     const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
-    const run_result_tests = b.addRunArtifact(result_tests);
+    const run_scratch_tests = b.addRunArtifact(scratch_tests);
 
     const exe_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/main.zig"),
@@ -127,6 +127,6 @@ pub fn build(b: *std.Build) void {
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_tokenizer_tests.step);
-    test_step.dependOn(&run_result_tests.step);
+    test_step.dependOn(&run_scratch_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 }
