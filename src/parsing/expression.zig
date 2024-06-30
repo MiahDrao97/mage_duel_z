@@ -20,17 +20,74 @@ pub const Result = union(enum) {
     damage_type: DamageType,
     dice: Dice,
     list: ListResult,
+    label: Label,
     // TODO: add player, cards, decks, etc.
+
+    pub fn as(self: Result, T: type) ?T {
+        switch (self) {
+            inline else => |x| {
+                if (@TypeOf(x) == T) {
+                    return x;
+                }
+            }
+        }
+        return null;
+    }
+
+    pub fn expectType(self: Result, T: type) Error!T {
+        return self.as(T) orelse Error.UnexpectedType;
+    }
+
+    pub fn UnderlyingType(self: Result) type {
+        return switch (self) {
+            inline else => |x| @TypeOf(x)
+        };
+    }
 };
 
 pub const ListResult = struct {
     items: []Result,
     // needs add functions and stuff
+
+    // TODO: need component type (how to handle empty?)
 };
 
-pub const Error = error {
-    AllocatorRequired
+pub const Label = enum {
+    one_time_use,
+    attack,
+    s_rank,
+    a_rank,
+    b_rank,
+    c_rank,
+
+    pub fn from(label: []const u8) ?Label {
+        if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {
+            return Label.one_time_use;
+        } else if (std.mem.eql(u8, @tagName(Label.attack), label)) {
+            return Label.attack;
+        } else if (std.mem.eql(u8, @tagName(Label.s_rank), label)) {
+            return Label.s_rank;
+        } else if (std.mem.eql(u8, @tagName(Label.a_rank), label)) {
+            return Label.a_rank;
+        } else if (std.mem.eql(u8, @tagName(Label.b_rank), label)) {
+            return Label.b_rank;
+        } else if (std.mem.eql(u8, @tagName(Label.c_rank), label)) {
+            return Label.c_rank;
+        }
+        return null;
+    }
 };
+
+const InnerError = error {
+    AllocatorRequired,
+    InvalidLabel,
+    UndefinedIdentifier,
+    OperandTypeNotSupported,
+    UnexpectedType,
+    ElementTypesVary
+};
+
+pub const Error = InnerError || Allocator.Error;
 
 pub const Expression = @This();
 
