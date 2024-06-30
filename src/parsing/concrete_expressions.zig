@@ -295,7 +295,5 @@ pub const AdditiveExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
-    allocator: Allocator,
-
 
 };

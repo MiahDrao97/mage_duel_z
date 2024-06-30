@@ -43,6 +43,13 @@ pub const Result = union(enum) {
             inline else => |x| @TypeOf(x)
         };
     }
+
+    pub fn isList(self: Result) bool {
+        return switch(self) {
+            Result.list => true,
+            else => false
+        };
+    }
 };
 
 pub const ListResult = struct {
@@ -77,6 +84,13 @@ pub const ListResult = struct {
     /// Takes two `ListResult`'s, combining their items.
     /// This results in a new `ListResult`, so be sure to destroy the other two.
     pub fn append(self: ListResult, other: ListResult) Error!ListResult {
+        if (self.component_type != null
+            and other.component_type != null
+            and self.component_type.? != other.component_type.?
+        ) {
+            return Error.ElementTypesVary;
+        }
+
         const new_results: []Result = try self.allocator.alloc(Result, self.items.len + other.items.len);
         errdefer self.allocator.free(new_results);
 
@@ -99,6 +113,13 @@ pub const ListResult = struct {
     /// Takes two `ListResult`'s, combining their items, but only items not already contained in `self`.
     /// This results in a new `ListResult`, so be sure to destroy the other two.
     pub fn appendUnique(self: ListResult, other: ListResult) Error!ListResult {
+        if (self.component_type != null
+            and other.component_type != null
+            and self.component_type.? != other.component_type.?
+        ) {
+            return Error.ElementTypesVary;
+        }
+
         const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
@@ -123,6 +144,10 @@ pub const ListResult = struct {
     /// Creates a new `ListResult` with `item` at the end.
     /// Be sure to destroy the original `ListResult` afterward.
     pub fn appendOne(self: ListResult, new: Result) Error!ListResult {
+        if (self.component_type != null and self.component_type.? != new.UnderlyingType()) {
+            return Error.ElementTypesVary;
+        }
+
         const new_results: []Result = try self.allocator.alloc(Result, self.items.len + 1);
         errdefer self.allocator.free(new_results);
 
@@ -141,6 +166,10 @@ pub const ListResult = struct {
     /// Creates a new `ListResult` with `item` at the end, ensuring each element is unique.
     /// Be sure to destroy the original `ListResult` afterward.
     pub fn appendOneUnique(self: ListResult, new: Result) Error!ListResult {
+        if (self.component_type != null and self.component_type.? != new.UnderlyingType()) {
+            return Error.ElementTypesVary;
+        }
+
         const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
@@ -164,6 +193,13 @@ pub const ListResult = struct {
     /// Be sure to destroy the original `ListResult`'s afterward.
     /// As a side effect, the new `ListResult` will only contain unique items, even if nothing is removed.
     pub fn remove(self: ListResult, other: ListResult) Error!ListResult {
+        if (self.component_type != null
+            and other.component_type != null
+            and self.component_type.? != other.component_type.?
+        ) {
+            return Error.ElementTypesVary;
+        }
+
         const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
@@ -190,6 +226,10 @@ pub const ListResult = struct {
     /// Be sure to destroy the original `ListResult` afterward.
     /// As a side effect, the new `ListResult` will only contain unique items, even if nothing is removed.
     pub fn removeOne(self: ListResult, to_remove: Result) Error!ListResult {
+        if (self.component_type != null and self.component_type.? != to_remove.UnderlyingType()) {
+            return Error.ElementTypesVary;
+        }
+
         const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 

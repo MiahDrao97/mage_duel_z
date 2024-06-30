@@ -87,28 +87,17 @@ pub fn build(b: *std.Build) void {
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
-    const tokenizer_tests = b.addTest(.{
-        .root_source_file = b.path("src/test/tokenizer_tests.zig"),
+    const tests = b.addTest(.{
+        .root_source_file = b.path("src/test/root.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    tokenizer_tests.root_module.addImport("util", util);
-    tokenizer_tests.root_module.addImport("game_zones", game_zones);
-    tokenizer_tests.root_module.addImport("parsing", parsing);
+    tests.root_module.addImport("util", util);
+    tests.root_module.addImport("game_zones", game_zones);
+    tests.root_module.addImport("parsing", parsing);
 
-    const scratch_tests = b.addTest(.{
-        .root_source_file = b.path("src/test/scratch_tests.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    scratch_tests.root_module.addImport("util", util);
-    scratch_tests.root_module.addImport("game_zones", game_zones);
-    scratch_tests.root_module.addImport("parsing", parsing);
-
-    const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
-    const run_scratch_tests = b.addRunArtifact(scratch_tests);
+    const run_tests = b.addRunArtifact(tests);
 
     const exe_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/main.zig"),
@@ -126,7 +115,6 @@ pub fn build(b: *std.Build) void {
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_tokenizer_tests.step);
-    test_step.dependOn(&run_scratch_tests.step);
+    test_step.dependOn(&run_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 }
