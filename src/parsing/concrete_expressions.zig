@@ -241,6 +241,29 @@ pub const Identifier = struct {
     }
 };
 
+pub const ParensthesizedExpression = struct {
+    inner: Expression,
+
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
+        return self.inner.evaluate(symbol_table);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
+        return self.inner.evaluate(allocator, symbol_table);
+    }
+
+    pub fn expr(self: *ParensthesizedExpression) Expression {
+        return Expression {
+            .ptr = self,
+            .requires_alloc = self.inner.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
+};
+
 pub const UnaryExpression = struct {
     rhs: Expression,
     op: Token,
@@ -259,7 +282,7 @@ pub const UnaryExpression = struct {
         return self.evaluate_internal(rh_result);
     }
 
-    fn evaluate_internal(self: UnaryExpression, result: Expression.Result) Expression.Error!Expression.Result {
+    fn evaluateInternal(self: UnaryExpression, result: Expression.Result) Expression.Error!Expression.Result {
         switch (result) {
             Expression.Result.boolean => |x| {
                 if (self.op.expectStringEquals("~")) {
@@ -296,4 +319,78 @@ pub const AdditiveExpression = struct {
     rhs: Expression,
     op: Token,
 
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
+
+        const lh_result: Expression.Result = try self.lhs.evaluate(symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluate(symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
+
+        const lh_result: Expression.Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    fn evaluateInternal(lhs: Expression.Result, rhs: Expression.Result, operator: Token) Expression.Error!Expression.Result {
+        switch (lhs) {
+            Expression.Result.integer => |lh_int| {
+                // rhs can only be an integer in this case
+                const rh_int: i32 = try rhs.expectType(i32);
+                try operator.expectStringEqualsOneOf(&[_][]const u8 { "+", "-" });
+                if (operator.stringEquals("+")) {
+                    return .{ .integer = lh_int + rh_int };
+                }
+                else {
+                    return .{ .integer = lh_int - rh_int };
+                }
+            },
+            Expression.Result.list => |lh_list| {
+                try operator.expectStringEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
+                if (rhs.isList()) |rh_list| {
+                    var new_list: Expression.ListResult = undefined;
+                    if (operator.stringEquals("+")) {
+                        new_list = try lh_list.append(rh_list);
+                    } else if (operator.stringEquals("+!")) {
+                        new_list = try lh_list.appendUnique(rh_list);
+                    } else {
+                        new_list = try lh_list.remove(rh_list);
+                    }
+                    // cleanup both sides
+                    lh_list.deinit();
+                    rh_list.deinit();
+
+                    return .{ .list = new_list };
+                } else {
+                    var new_list: Expression.ListResult = undefined;
+                    if (operator.stringEquals("+")) {
+                        new_list = try lh_list.appendOne(rhs);
+                    } else if (operator.stringEquals("+!")) {
+                        new_list = try lh_list.appendOneUnique(rhs);
+                    } else {
+                        new_list = try lh_list.removeOne(rhs);
+                    }
+                    // cleanup original list
+                    lh_list.deinit();
+
+                    return .{ .list = new_list };
+                }
+            },
+            else => return Expression.Error.OperandTypeNotSupported
+        }
+    }
+
+    pub fn expr(self: *AdditiveExpression) Expression {
+        return Expression {
+            .ptr = self,
+            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
 };

@@ -23,7 +23,7 @@ pub const Result = union(enum) {
     label: Label,
     // TODO: add player, cards, decks, etc.
 
-    pub fn as(self: Result, T: type) ?T {
+    pub fn as(self: Result, comptime T: type) ?T {
         switch (self) {
             inline else => |x| {
                 if (@TypeOf(x) == T) {
@@ -34,7 +34,7 @@ pub const Result = union(enum) {
         return null;
     }
 
-    pub fn expectType(self: Result, T: type) Error!T {
+    pub fn expectType(self: Result, comptime T: type) Error!T {
         return self.as(T) orelse Error.UnexpectedType;
     }
 
@@ -44,11 +44,8 @@ pub const Result = union(enum) {
         };
     }
 
-    pub fn isList(self: Result) bool {
-        return switch(self) {
-            Result.list => true,
-            else => false
-        };
+    pub fn isList(self: Result) ?ListResult {
+        return self.as(ListResult);
     }
 };
 
@@ -289,6 +286,7 @@ const InnerError = error {
     InvalidLabel,
     UndefinedIdentifier,
     OperandTypeNotSupported,
+    OperandTypeMismatch,
     UnexpectedType,
     ElementTypesVary
 };

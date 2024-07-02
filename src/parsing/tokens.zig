@@ -282,6 +282,15 @@ pub const Token = union(enum) {
         }
     }
 
+    pub fn expectStringEqualsOneOf(self: Token, str_values: []const []const u8) ParseTokenError!void {
+        for (str_values) |val| {
+            if (self.stringEquals(val)) {
+                return;
+            }
+        }
+        return ParseTokenError.InvalidToken;
+    }
+
     pub fn expectMatches(self: Token, tagName: []const u8) ParseTokenError!void {
         if (!std.mem.eql(u8, @tagName(self), tagName)) {
             return ParseTokenError.InvalidToken;
@@ -344,6 +353,14 @@ pub const TokenIterator = struct {
     pub fn require(self: TokenIterator, str_value: []const u8) ParseTokenError!Token {
         if (self.internal_iter.next()) |t| {
             try t.expectStringEquals(str_value);
+            return t;
+        }
+        return ParseTokenError.EOF;
+    }
+
+    pub fn requireOneOf(self: TokenIterator, str_values: []const []const u8) ParseTokenError!Token {
+        if (self.internal_iter.next()) |t| {
+            try t.expectStringEqualsOneOf(str_values);
             return t;
         }
         return ParseTokenError.EOF;
