@@ -21,7 +21,7 @@ allocator: Allocator,
 /// There is no `deinit()` on this structure because all resulting memory belongs to the caller.
 /// Using an arena is recommended (or maybe even further up when parsing statements/expressions).
 pub fn init(allocator: Allocator) Tokenizer {
-    return Tokenizer { .allocator = allocator };
+    return .{ .allocator = allocator };
 }
 
 const InnerErrors = error {

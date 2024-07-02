@@ -8,9 +8,7 @@ pub fn Iterator(comptime T: type) type {
         /// Create a new instance of `Iterator(T)`.
         /// It does not own this slice, so the caller must free it.
         pub fn from(slice: []const T) Self {
-            return Self {
-                .inner = slice
-            };
+            return .{ .inner = slice };
         }
 
         /// Return next element or null if iteration is over.

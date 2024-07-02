@@ -29,7 +29,7 @@ pub const IntegerLiteral = struct {
     pub fn from(iter: TokenIterator) ParseError!IntegerLiteral {
         if (iter.next()) |token| {
             if (token.getNumericValue()) |n| {
-                return IntegerLiteral { .val = n };
+                return .{ .val = n };
             }
         }
         return ParseError.UnexpectedToken;
@@ -45,7 +45,7 @@ pub const IntegerLiteral = struct {
     }
 
     pub fn expr(self: *IntegerLiteral) Expression {
-        return Expression {
+        return .{
             .ptr = self,
             .requires_alloc = false,
             .evaluateFn = &evaluate,
@@ -60,7 +60,7 @@ pub const BooleanLiteral = struct {
     pub fn from(iter: TokenIterator) ParseError!BooleanLiteral {
         if (iter.next()) |token| {
             if (token.getBoolValue()) |b| {
-                return BooleanLiteral { .val = b };
+                return .{ .val = b };
             }
         }
         return ParseError.UnexpectedToken;
@@ -76,7 +76,7 @@ pub const BooleanLiteral = struct {
     }
 
     pub fn expr(self: *BooleanLiteral) Expression {
-        return Expression {
+        return .{
             .ptr = self,
             .requires_alloc = false,
             .evaluateFn = &evaluate,
@@ -107,7 +107,7 @@ pub const DamageTypeLiteral = struct {
     }
 
     pub fn expr(self: *DamageTypeLiteral) Expression {
-        return Expression {
+        return .{
             .ptr = self,
             .requires_alloc = false,
             .evaluateFn = &evaluate,
@@ -122,7 +122,7 @@ pub const DiceLiteral = struct {
     pub fn from(iter: TokenIterator) ParseError!DiceLiteral {
         if (iter.next()) |token| {
             if (token.getDiceValue()) |d| {
-                return DiceLiteral { .val = d };
+                return .{ .val = d };
             }
         }
         return ParseError.UnexpectedToken;
@@ -138,7 +138,7 @@ pub const DiceLiteral = struct {
     }
 
     pub fn expr(self: *DiceLiteral) Expression {
-        return Expression {
+        return .{
             .ptr = self,
             .requires_alloc = false,
             .evaluateFn = &evaluate,

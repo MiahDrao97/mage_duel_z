@@ -11,7 +11,7 @@ allocator: Allocator,
 symbols: HashMap,
 
 pub fn init(allocator: Allocator) SymbolTable {
-    return SymbolTable {
+    return .{
         .allocator = allocator,
         .symbols = HashMap.init(allocator),
     };
