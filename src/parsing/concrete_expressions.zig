@@ -365,9 +365,6 @@ pub const AdditiveExpression = struct {
                     } else {
                         new_list = try lh_list.remove(rh_list);
                     }
-                    // cleanup both sides
-                    lh_list.deinit();
-                    rh_list.deinit();
 
                     return .{ .list = new_list };
                 } else {
@@ -379,8 +376,6 @@ pub const AdditiveExpression = struct {
                     } else {
                         new_list = try lh_list.removeOne(rhs);
                     }
-                    // cleanup original list
-                    lh_list.deinit();
 
                     return .{ .list = new_list };
                 }
@@ -606,3 +601,6 @@ pub const BooleanExpression = struct {
         };
     }
 };
+
+// TODO: target expression, damage transaction (?), function def (?)
+// Function calls double as a statement and expression, so I'll define that with the concrete statements

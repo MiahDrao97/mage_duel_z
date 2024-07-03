@@ -301,7 +301,7 @@ pub const Token = union(enum) {
 
     pub fn expectSymbolEqualsOneOf(self: Token, str_values: []const []const u8) ParseTokenError!void {
         for (str_values) |val| {
-            if (std.mem.eql(@tagName(self), @tagName(Token.symbol)) and self.stringEquals(val)) {
+            if (std.mem.eql(u8, @tagName(self), @tagName(Token.symbol)) and self.stringEquals(val)) {
                 return;
             }
         }
