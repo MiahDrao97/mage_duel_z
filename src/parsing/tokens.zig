@@ -282,9 +282,26 @@ pub const Token = union(enum) {
         }
     }
 
+    pub fn expectSymbolEquals(self: Token, str: []const u8) ParseTokenError!void {
+        try self.expectMatches(@tagName(Token.symbol));
+        if (!self.stringEquals(str)) {
+            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.toString().?, str });
+            return ParseTokenError.InvalidToken;
+        }
+    }
+
     pub fn expectStringEqualsOneOf(self: Token, str_values: []const []const u8) ParseTokenError!void {
         for (str_values) |val| {
             if (self.stringEquals(val)) {
+                return;
+            }
+        }
+        return ParseTokenError.InvalidToken;
+    }
+
+    pub fn expectSymbolEqualsOneOf(self: Token, str_values: []const []const u8) ParseTokenError!void {
+        for (str_values) |val| {
+            if (std.mem.eql(@tagName(self), @tagName(Token.symbol)) and self.stringEquals(val)) {
                 return;
             }
         }
@@ -350,17 +367,19 @@ pub const TokenIterator = struct {
         return null;
     }
 
+    /// Assumes that the next token needs to be a symbol with a given string value
     pub fn require(self: TokenIterator, str_value: []const u8) ParseTokenError!Token {
         if (self.internal_iter.next()) |t| {
-            try t.expectStringEquals(str_value);
+            try t.expectSymbolEquals(str_value);
             return t;
         }
         return ParseTokenError.EOF;
     }
 
+    /// Assumes that the next token needs to be a symbol with a given string value
     pub fn requireOneOf(self: TokenIterator, str_values: []const []const u8) ParseTokenError!Token {
         if (self.internal_iter.next()) |t| {
-            try t.expectStringEqualsOneOf(str_values);
+            try t.expectSymbolEqualsOneOf(str_values);
             return t;
         }
         return ParseTokenError.EOF;

@@ -9,6 +9,7 @@ const imports = struct {
 
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
+const DamageTransaction = imports.types.DamageTransaction;
 
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
@@ -18,6 +19,7 @@ pub const Result = union(enum) {
     integer: i32,
     boolean: bool,
     damage_type: DamageType,
+    damage_transaction: DamageTransaction,
     dice: Dice,
     list: ListResult,
     label: Label,

@@ -31,8 +31,9 @@ pub const IntegerLiteral = struct {
             if (token.getNumericValue()) |n| {
                 return .{ .val = n };
             }
+            return ParseError.UnexpectedToken;
         }
-        return ParseError.UnexpectedToken;
+        return ParseError.EOF;
     }
 
     pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
@@ -62,8 +63,9 @@ pub const BooleanLiteral = struct {
             if (token.getBoolValue()) |b| {
                 return .{ .val = b };
             }
+            return ParseError.UnexpectedToken;
         }
-        return ParseError.UnexpectedToken;
+        return ParseError.EOF;
     }
 
     pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
@@ -93,8 +95,9 @@ pub const DamageTypeLiteral = struct {
             if (token.getDamageTypeValue()) |d| {
                 return .{ .val = d };
             }
+            return ParseError.UnexpectedToken;
         }
-        return ParseError.UnexpectedToken;
+        return ParseError.EOF;
     }
 
     pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
@@ -124,8 +127,9 @@ pub const DiceLiteral = struct {
             if (token.getDiceValue()) |d| {
                 return .{ .val = d };
             }
+            return ParseError.UnexpectedToken;
         }
-        return ParseError.UnexpectedToken;
+        return ParseError.EOF;
     }
 
     pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Expression.Error!Expression.Result {
@@ -285,7 +289,7 @@ pub const UnaryExpression = struct {
     fn evaluateInternal(self: UnaryExpression, result: Expression.Result) Expression.Error!Expression.Result {
         switch (result) {
             Expression.Result.boolean => |x| {
-                if (self.op.expectStringEquals("~")) {
+                if (self.op.expectSymbolEquals("~")) {
                     return !x;
                 } else |err| {
                     return err;
@@ -293,7 +297,7 @@ pub const UnaryExpression = struct {
                 return Expression.Error.OperandTypeNotSupported;
             },
             Expression.Result.integer => |x| {
-                if (self.op.expectStringEquals("-")) {
+                if (self.op.expectSymbolEquals("-")) {
                     return -x;
                 } else |err| {
                     return err;
@@ -341,8 +345,8 @@ pub const AdditiveExpression = struct {
         switch (lhs) {
             Expression.Result.integer => |lh_int| {
                 // rhs can only be an integer in this case
-                const rh_int: i32 = try rhs.expectType(i32);
-                try operator.expectStringEqualsOneOf(&[_][]const u8 { "+", "-" });
+                const rh_int: i32 = try rhs.expectType(i32) catch { return Expression.Error.OperandTypeMismatch; };
+                try operator.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-" });
                 if (operator.stringEquals("+")) {
                     return .{ .integer = lh_int + rh_int };
                 }
@@ -351,7 +355,7 @@ pub const AdditiveExpression = struct {
                 }
             },
             Expression.Result.list => |lh_list| {
-                try operator.expectStringEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
+                try operator.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
                 if (rhs.isList()) |rh_list| {
                     var new_list: Expression.ListResult = undefined;
                     if (operator.stringEquals("+")) {
@@ -387,6 +391,214 @@ pub const AdditiveExpression = struct {
 
     pub fn expr(self: *AdditiveExpression) Expression {
         return Expression {
+            .ptr = self,
+            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
+};
+
+pub const FactorExpression = struct {
+    lhs: Expression,
+    rhs: Expression,
+    op: Token,
+
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *FactorExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "*", "/" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluate(symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluate(symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "*", "/" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    fn evaluateInternal(lhs: Expression.Result, rhs: Expression.Result, operator: Token) Expression.Error!Expression.Result {
+        const lh_int: i32 = try lhs.expectType(i32) catch { return Expression.Error.OperandTypeNotSupported; };
+        const rh_int: i32 = try rhs.expectType(i32) catch { return Expression.Error.OperandTypeNotSupported; };
+
+        if (operator.stringEquals("*")) {
+            return .{ .integer = lh_int * rh_int };
+        } else {
+            return .{ .integer = lh_int / rh_int };
+        }
+    }
+
+    pub fn expr(self: *FactorExpression) Expression {
+        return .{
+            .ptr = self,
+            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
+};
+
+pub const ComparisonExpression = struct {
+    lhs: Expression,
+    rhs: Expression,
+    op: Token,
+
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "<", "<=", ">=", ">" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluate(symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluate(symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "<", "<=", ">=", ">" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    fn evaluateInternal(lhs: Expression.Result, rhs: Expression.Result, operator: Token) Expression.Error!Expression.Result {
+        const lh_int: i32 = try lhs.expectType(i32) catch { return Expression.Error.OperandTypeNotSupported; };
+        const rh_int: i32 = try rhs.expectType(i32) catch { return Expression.Error.OperandTypeNotSupported; };
+
+        if (operator.stringEquals("<")) {
+            return .{ .boolean = lh_int < rh_int };
+        } else if (operator.stringEquals("<=")) {
+            return .{ .boolean = lh_int <= rh_int };
+        } else if (operator.stringEquals(">=")) {
+            return .{ .boolean = lh_int >= rh_int };
+        } else {
+            return .{ .boolean = lh_int > rh_int };
+        }
+    }
+
+    pub fn expr(self: *ComparisonExpression) Expression {
+        return .{
+            .ptr = self,
+            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
+};
+
+pub const EqualityExpression = struct {
+    lhs: Expression,
+    rhs: Expression,
+    op: Token,
+
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "==", "~=" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluate(symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluate(symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "==", "~=" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    fn evaluateInternal(lhs: Expression.Result, rhs: Expression.Result, operator: Token) Expression.Error!Expression.Result {
+        switch (lhs) {
+            Expression.Result.integer => |lh_int| {
+                const rh_int: i32 = try rhs.expectType(i32) catch { return Expression.Error.OperandTypeNotSupported; };
+                if (operator.stringEquals("==")) {
+                    return .{ .boolean = lh_int == rh_int };
+                } else {
+                    return .{ .boolean = lh_int != rh_int };
+                }
+            },
+            Expression.Result.boolean => |lh_bool| {
+                const rh_bool: bool = try rhs.expectType(bool) catch { return Expression.Error.OperandTypeNotSupported; };
+                if (operator.stringEquals("==")) {
+                    return .{ .boolean = lh_bool == rh_bool };
+                } else {
+                    return .{ .boolean = lh_bool != rh_bool };
+                }
+            },
+            else => return Expression.Error.OperandTypeNotSupported
+        }
+    }
+
+    pub fn expr(self: *EqualityExpression) Expression {
+        return .{
+            .ptr = self,
+            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
+            .evaluateFn = &evaluate,
+            .evaluateAllocFn = &evaluateAlloc
+        };
+    }
+};
+
+pub const BooleanExpression = struct {
+    lhs: Expression,
+    rhs: Expression,
+    op: Token,
+
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "|", "^" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluate(symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluate(symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Expression.Error!Expression.Result {
+        const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
+
+        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "|", "^" });
+
+        const lh_result: Expression.Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
+        const rh_result: Expression.Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
+
+        return evaluateInternal(lh_result, rh_result, self.op);
+    }
+
+    fn evaluateInternal(lhs: Expression.Result, rhs: Expression.Result, operator: Token) Expression.Error!Expression.Result {
+        const lh_bool: bool = try lhs.expectType(bool) catch { return Expression.Error.OperandTypeNotSupported; };
+        const rh_bool: bool = try rhs.expectType(bool) catch { return Expression.Error.OperandTypeNotSupported; };
+        if (operator.stringEquals("+")) {
+            return .{ .boolean = lh_bool and rh_bool };
+        } else if (operator.stringEquals("|")) {
+            return .{ .boolean = lh_bool or rh_bool };
+        } else {
+            return .{ .boolean = (!lh_bool and rh_bool) or (lh_bool and !rh_bool) };
+        }
+    }
+
+    pub fn expr(self: *BooleanExpression) Expression {
+        return .{
             .ptr = self,
             .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
             .evaluateFn = &evaluate,

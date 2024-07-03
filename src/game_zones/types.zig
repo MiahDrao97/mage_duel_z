@@ -33,6 +33,11 @@ pub const DamageType  = enum {
     }
 };
 
+pub const DamageTransaction = struct {
+    damage_type: DamageType,
+    amount: u16,
+};
+
 pub const Dice = struct {
     sides: u8,
     rand: Random,
