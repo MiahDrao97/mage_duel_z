@@ -2,7 +2,6 @@ const std = @import("std");
 
 const imports = struct {
     usingnamespace @import("tokens.zig");
-    usingnamespace @import("symbol_table.zig");
     usingnamespace @import("util");
     usingnamespace @import("game_zones");
 };
@@ -10,19 +9,19 @@ const imports = struct {
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const DamageTransaction = imports.types.DamageTransaction;
-
+const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
-const SymbolTable = imports.SymbolTable;
 
 pub const Result = union(enum) {
     integer: i32,
     boolean: bool,
     damage_type: DamageType,
     damage_transaction: DamageTransaction,
-    dice: Dice,
+    dice: struct { count: u16, dice: Dice },
     list: ListResult,
     label: Label,
+    identifier: Symbol,
     // TODO: add player, cards, decks, etc.
 
     pub fn as(self: Result, comptime T: type) ?T {
@@ -40,12 +39,6 @@ pub const Result = union(enum) {
         return self.as(T) orelse Error.UnexpectedType;
     }
 
-    pub fn UnderlyingType(self: Result) type {
-        return switch (self) {
-            inline else => |x| @TypeOf(x)
-        };
-    }
-
     pub fn isList(self: Result) ?ListResult {
         return self.as(ListResult);
     }
@@ -53,8 +46,8 @@ pub const Result = union(enum) {
 
 pub const ListResult = struct {
     items: []Result,
-    /// The type of the contained elements. Will be null if the list is empty.
-    component_type: ?type,
+    /// The tag name of the contained elements. Will be null if the list is empty.
+    component_type: ?[]const u8,
     allocator: Allocator,
 
     /// Initialize a `ListResult` with elements and the allocator that allocated them.
@@ -67,15 +60,15 @@ pub const ListResult = struct {
             };
         }
 
-        const ComponentType: type = elements[0].UnderlyingType();
+        const component_type: []const u8 = @tagName(elements[0]);
         for (elements) |e| {
-            if (e.UnderlyingType() != ComponentType) {
+            if (!std.mem.eql(u8, @tagName(e), component_type)) {
                 return Error.ElementTypesVary;
             }
         }
         return .{
             .items = elements,
-            .component_type = ComponentType,
+            .component_type = component_type,
             .allocator = allocator
         };
     }
@@ -85,7 +78,7 @@ pub const ListResult = struct {
     pub fn append(self: ListResult, other: ListResult) Error!ListResult {
         if (self.component_type != null
             and other.component_type != null
-            and self.component_type.? != other.component_type.?
+            and !std.mem.eql(u8, self.component_type.?, other.component_type.?)
         ) {
             return Error.ElementTypesVary;
         }
@@ -114,12 +107,12 @@ pub const ListResult = struct {
     pub fn appendUnique(self: ListResult, other: ListResult) Error!ListResult {
         if (self.component_type != null
             and other.component_type != null
-            and self.component_type.? != other.component_type.?
+            and !std.mem.eql(u8, self.component_type.?, other.component_type.?)
         ) {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
@@ -143,7 +136,7 @@ pub const ListResult = struct {
     /// Creates a new `ListResult` with `item` at the end.
     /// Be sure to destroy the original `ListResult` afterward.
     pub fn appendOne(self: ListResult, new: Result) Error!ListResult {
-        if (self.component_type != null and self.component_type.? != new.UnderlyingType()) {
+        if (self.component_type != null and !std.mem.eql(u8, self.component_type.?, @tagName(new))) {
             return Error.ElementTypesVary;
         }
 
@@ -165,11 +158,11 @@ pub const ListResult = struct {
     /// Creates a new `ListResult` with `item` at the end, ensuring each element is unique.
     /// Be sure to destroy the original `ListResult` afterward.
     pub fn appendOneUnique(self: ListResult, new: Result) Error!ListResult {
-        if (self.component_type != null and self.component_type.? != new.UnderlyingType()) {
+        if (self.component_type != null and !std.mem.eql(u8, self.component_type.?, @tagName(new))) {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
@@ -194,12 +187,12 @@ pub const ListResult = struct {
     pub fn remove(self: ListResult, other: ListResult) Error!ListResult {
         if (self.component_type != null
             and other.component_type != null
-            and self.component_type.? != other.component_type.?
+            and !std.mem.eql(u8, self.component_type.?, other.component_type.?)
         ) {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items from self
@@ -225,7 +218,7 @@ pub const ListResult = struct {
     /// Be sure to destroy the original `ListResult` afterward.
     /// As a side effect, the new `ListResult` will only contain unique items, even if nothing is removed.
     pub fn removeOne(self: ListResult, to_remove: Result) Error!ListResult {
-        if (self.component_type != null and self.component_type.? != to_remove.UnderlyingType()) {
+        if (self.component_type != null and !std.mem.eql(u8, self.component_type.?, @tagName(to_remove))) {
             return Error.ElementTypesVary;
         }
 
@@ -283,6 +276,121 @@ pub const Label = enum {
     }
 };
 
+pub const FunctionDef = *const fn (*anyopaque) anyerror!Result;
+
+pub const Symbol = union(enum) {
+    value: *Result,
+    function: FunctionDef,
+    complex_object: *Scope,
+};
+
+pub const Scope = struct {
+    outer: ?*Scope,
+    allocator: Allocator,
+    symbols: StringHashMap(Symbol),
+
+    pub fn new(allocator: Allocator, outer: ?*Scope) Allocator.Error!*Scope {
+        const ptr: *Scope = try allocator.create(Scope);
+        ptr.* = .{
+            .symbols = StringHashMap(Symbol).init(allocator),
+            .allocator = allocator,
+            .outer = outer
+        };
+        return ptr;
+    }
+
+    pub fn pushNew(self: *Scope) Allocator.Error!*Scope {
+        return Scope.new(self.allocator, self);
+    }
+
+    pub fn pop(self: *Scope) error{NoOuterScope}!*Scope {
+        if (self.outer) |next_scope| {
+            self.deinit();
+            return next_scope;
+        }
+        return error.NoOuterScope;
+    }
+
+    pub fn getSymbol(self: Scope, name: []const u8) ?Symbol {
+        return self.symbols.get(name);
+    }
+
+    pub fn putSymbol(self: *Scope, name: []const u8, symbol: Symbol) Allocator.Error!void {
+        try self.symbols.put(name, symbol);
+    }
+
+    pub fn deinit(self: *Scope) void {
+        self.symbols.deinit();
+        self.allocator.destroy(self);
+    }
+
+    /// Recursively destroys all outer scopes as well as this one.
+    /// Should only be used when the symbol table `deinit`'s or else unepxected behavior will occur.
+    pub fn deinitAllScopes(self: *Scope) void {
+        if (self.outer) |outer| {
+            outer.deinitAllScopes();
+        }
+        self.deinit();
+    }
+};
+
+pub const SymbolTable = struct {
+    allocator: Allocator,
+    current_scope: *Scope,
+
+    pub fn new(allocator: Allocator) Allocator.Error!SymbolTable {
+        return .{
+            .allocator = allocator,
+            .current_scope = try Scope.new(allocator, null)
+        };
+    }
+
+    pub fn getSymbol(self: SymbolTable, name: []const u8) ?Symbol {
+        var current: ?*Scope = self.current_scope;
+        while (current) |scope| {
+            if (scope.getSymbol(name)) |val| {
+                return val;
+            }
+            current = scope.outer;
+        }
+        return null;
+    }
+
+    pub fn putSymbol(self: SymbolTable, name: []const u8, value: Symbol) Allocator.Error!void {
+        switch (value) {
+            Symbol.complex_object => |s| {
+                s.outer = self.current_scope;
+            },
+            else => { }
+        }
+        try self.current_scope.putSymbol(name, value);
+    }
+
+    pub fn newScope(self: *SymbolTable) Allocator.Error!void {
+        self.current_scope = try self.current_scope.pushNew();
+    }
+
+    /// If there are no inner scopes, this function will have no effect.
+    pub fn endScope(self: *SymbolTable) void {
+        if (self.current_scope.pop()) |outer| {
+            self.current_scope = outer;
+        } else |_| { }
+    }
+
+    pub fn getPlayerChoice(self: SymbolTable, amount: u16, pool: []const Result, exact: bool) !Result {
+        _ = &self;
+        _ = &amount;
+        _ = &pool;
+        _ = &exact;
+        return error.NotImplemented;
+    }
+
+    pub fn deinit(self: *SymbolTable) void {
+        self.current_scope.deinitAllScopes();
+        self.* = undefined;
+    }
+};
+
 const InnerError = error {
     AllocatorRequired,
     InvalidLabel,
@@ -290,31 +398,32 @@ const InnerError = error {
     OperandTypeNotSupported,
     OperandTypeMismatch,
     UnexpectedType,
-    ElementTypesVary
+    ElementTypesVary,
+    MustBeGreaterThanZero
 };
 
 pub const Error = InnerError || Allocator.Error;
 
-pub const Expression = @This();
+pub const Expression = struct {
+    ptr: *anyopaque,
+    requires_alloc: bool,
+    evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
+    evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) Error!Result,
 
-ptr: *anyopaque,
-requires_alloc: bool,
-evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
-evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) Error!Result,
-
-pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
-    if (self.requires_alloc) {
-        return Error.AllocatorRequired;
+    pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
+        if (self.requires_alloc) {
+            return Error.AllocatorRequired;
+        }
+        return self.evaluateFn(self.ptr, symbol_table);
     }
-    return self.evaluateFn(self.ptr, symbol_table);
-}
 
-pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) Error!Result {
-    return self.evaluateAllocFn(allocator, self.ptr, symbol_table);
-}
+    pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) Error!Result {
+        return self.evaluateAllocFn(allocator, self.ptr, symbol_table);
+    }
 
 /// Simply returns `AllocatorRequired` error.
-/// Used for the various expressions that need an allocator but also must implement `evaluteFn`.
-pub fn errRequireAlloc(_: *anyopaque, _: SymbolTable) Error!Result {
-    return Error.AllocatorRequired;
-}
+    /// Used for the various expressions that need an allocator but also must implement `evaluteFn`.
+    pub fn errRequireAlloc(_: *anyopaque, _: SymbolTable) Error!Result {
+       return Error.AllocatorRequired;
+    }
+};

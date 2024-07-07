@@ -1,6 +1,6 @@
 const std = @import("std");
 const parsing = @import("parsing");
-const Result = parsing.Expression.Result;
+const Result = parsing.ExpressionResult;
 
 test "type equal" {
     const type_1 = u8;
