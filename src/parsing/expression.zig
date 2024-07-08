@@ -250,29 +250,44 @@ pub const ListResult = struct {
 
 /// Allowed labels on cards.
 /// Labels are annotations that give cards attributes.
-pub const Label = enum {
-    one_time_use,
-    attack,
-    s_rank,
-    a_rank,
-    b_rank,
-    c_rank,
+pub const Label = union(enum) {
+    one_time_use: void,
+    attack: void,
+    rank: u8,
+    accuracy: u8,
 
-    pub fn from(label: []const u8) ?Label {
+    const rank_values: []const u8 = &[_]u8 { 'a', 'b', 'c', 's' };
+
+    pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
         if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {
-            return Label.one_time_use;
+            return .{ .one_time_use };
         } else if (std.mem.eql(u8, @tagName(Label.attack), label)) {
-            return Label.attack;
-        } else if (std.mem.eql(u8, @tagName(Label.s_rank), label)) {
-            return Label.s_rank;
-        } else if (std.mem.eql(u8, @tagName(Label.a_rank), label)) {
-            return Label.a_rank;
-        } else if (std.mem.eql(u8, @tagName(Label.b_rank), label)) {
-            return Label.b_rank;
-        } else if (std.mem.eql(u8, @tagName(Label.c_rank), label)) {
-            return Label.c_rank;
+            return .{ .attack };
+        } else if (std.mem.eql(u8, @tagName(Label.rank), label)) {
+            if (value) |val| {
+                // expecting a single character
+                if (val.len == 1) {
+                    if (std.mem.indexOf(u8, rank_values, &[_]u8 { std.ascii.toLower(val[0]) })) |i| {
+                        return .{ .rank = rank_values[i] };
+                    }   
+                }
+                return Error.InvalidLabelValue;
+            }
+            return Error.LabelRequiresValue;
+        } else if (std.mem.eql(u8, @tagName(Label.accuracy), label)) {
+            if (value) |val| {
+                const accuracy: u8 = std.fmt.parseUnsigned(u8, val, 10) catch {
+                    std.log.err("Unable to parse unsigned 8-bit integer from '{s}' while parsing the value of the accuracy label.", .{ val });
+                    return Error.InvalidLabelValue;
+                };
+                if (accuracy > 20) {
+                    std.log.err("Accuracy cannot exceed 20. Was {d}.", .{ accuracy });
+                    return Error.InvalidLabelValue;
+                }
+                return .{ .accuracy = accuracy };
+            }
         }
-        return null;
+        return Error.InvalidLabel;
     }
 };
 
@@ -392,8 +407,9 @@ pub const SymbolTable = struct {
 };
 
 const InnerError = error {
-    AllocatorRequired,
     InvalidLabel,
+    InvalidLabelValue,
+    LabelRequiresValue,
     UndefinedIdentifier,
     OperandTypeNotSupported,
     OperandTypeMismatch,
@@ -406,24 +422,9 @@ pub const Error = InnerError || Allocator.Error;
 
 pub const Expression = struct {
     ptr: *anyopaque,
-    requires_alloc: bool,
     evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
-    evaluateAllocFn: *const fn (Allocator, *anyopaque, SymbolTable) Error!Result,
 
     pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
-        if (self.requires_alloc) {
-            return Error.AllocatorRequired;
-        }
         return self.evaluateFn(self.ptr, symbol_table);
-    }
-
-    pub fn evaluateAlloc(self: Expression, allocator: Allocator, symbol_table: SymbolTable) Error!Result {
-        return self.evaluateAllocFn(allocator, self.ptr, symbol_table);
-    }
-
-/// Simply returns `AllocatorRequired` error.
-    /// Used for the various expressions that need an allocator but also must implement `evaluteFn`.
-    pub fn errRequireAlloc(_: *anyopaque, _: SymbolTable) Error!Result {
-       return Error.AllocatorRequired;
     }
 };

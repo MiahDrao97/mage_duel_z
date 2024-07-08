@@ -255,6 +255,10 @@ pub const Token = union(enum) {
         return std.mem.eql(u8, a_tag, b_tag);
     }
 
+    pub fn matchesType(self: Token, tag: []const u8) bool {
+        return std.mem.eql(u8, @tagName(self), tag);
+    }
+
     pub fn toString(this: Token) ?[]const u8 {
         return switch (this) {
             Token.identifier => |x| x.*.value,
@@ -273,6 +277,13 @@ pub const Token = union(enum) {
             return false;
         }
         return std.mem.eql(u8, self_str.?, str);
+    }
+
+    pub fn symbolEquals(self: Token, str: []const u8) bool {
+        if (std.mem.eql(u8, @tagName(self), @tagName(Token.symbol))) {
+            return self.stringEquals(str);
+        }
+        return false;
     }
 
     pub fn expectStringEquals(self: Token, str: []const u8) ParseTokenError!void {
@@ -308,8 +319,8 @@ pub const Token = union(enum) {
         return ParseTokenError.InvalidToken;
     }
 
-    pub fn expectMatches(self: Token, tagName: []const u8) ParseTokenError!void {
-        if (!std.mem.eql(u8, @tagName(self), tagName)) {
+    pub fn expectMatches(self: Token, tag: []const u8) ParseTokenError!void {
+        if (!self.matchesType(tag)) {
             return ParseTokenError.InvalidToken;
         }
     }
@@ -367,6 +378,13 @@ pub const TokenIterator = struct {
         return null;
     }
 
+    pub fn peek(self: *TokenIterator) ?Token {
+        const next_tok: ?Token = self.next();
+        // as if we hadn't moved forward
+        self.internal_iter.scroll(-1);
+        return next_tok;
+    }
+
     /// Assumes that the next token needs to be a symbol with a given string value
     pub fn require(self: TokenIterator, str_value: []const u8) ParseTokenError!Token {
         if (self.internal_iter.next()) |t| {
@@ -385,10 +403,14 @@ pub const TokenIterator = struct {
         return ParseTokenError.EOF;
     }
 
-    pub fn requireType(self: TokenIterator, tag_name: []const u8) ParseTokenError!Token {
+    pub fn requireType(self: TokenIterator, tag_names: []const []const u8) ParseTokenError!Token {
         if (self.internal_iter.next()) |t| {
-            try t.expectMatches(tag_name);
-            return t;
+            for (tag_names) |tag| {
+                if (t.matchesType(tag)) {
+                    return t;
+                }
+            }
+            return ParseTokenError.InvalidToken;
         }
         return ParseTokenError.EOF;
     }

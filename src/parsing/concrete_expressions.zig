@@ -11,9 +11,12 @@ const Allocator = std.mem.Allocator;
 const Expression = imports.Expression;
 const Result = imports.Result;
 const Error = imports.Error;
+const ListResult = imports.ListResult;
+const Label = imports.Label;
 const Token = imports.Token;
 const TokenIterator = imports.TokenIterator;
 const SymbolTable = imports.SymbolTable;
+const Symbol = imports.Symbol;
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const ParseTokenError = imports.ParseTokenError;
@@ -42,16 +45,10 @@ pub const IntegerLiteral = struct {
         return .{ .integer = self.val };
     }
 
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
-    }
-
     pub fn expr(self: *IntegerLiteral) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -74,16 +71,10 @@ pub const BooleanLiteral = struct {
         return .{ .boolean = self.val };
     }
 
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
-    }
-
     pub fn expr(self: *BooleanLiteral) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -106,16 +97,10 @@ pub const DamageTypeLiteral = struct {
         return .{ .damage_type = self.val };
     }
 
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
-    }
-
     pub fn expr(self: *DamageTypeLiteral) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -153,16 +138,10 @@ pub const DiceLiteral = struct {
         };
     }
 
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
-    }
-
     pub fn expr(self: *DiceLiteral) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -172,60 +151,57 @@ pub const DiceLiteral = struct {
 pub const ListLiteral = struct {
     vals: []Expression,
 
-    pub fn evaluateAlloc(
-        allocator: Allocator,
-        this_ptr: *anyopaque,
-        symbol_table: SymbolTable
-    ) Error!Result {
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *ListLiteral = @ptrCast(@alignCast(this_ptr));
-        const evaluated: []Result = try allocator.alloc(Result);
+        const evaluated: []Result = try symbol_table.allocator.alloc(Result);
 
         // since we require the allocator here, we're gonna assume each item needs one too
         for (0..self.vals.len) |i| {
-            evaluated[i] = try self.vals[i].evaluateAlloc(allocator, symbol_table);
+            evaluated[i] = try self.vals[i].evaluate(symbol_table);
         }
 
-        return .{ .list = try Expression.ListResult.from(allocator, evaluated) };
+        return .{ .list = try ListResult.from(symbol_table.allocator, evaluated) };
     }
 
     pub fn expr(self: *ListLiteral) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = true,
-            .evaluateFn = &Expression.errRequireAlloc,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
 
-pub const Label = struct {
-    label: []const u8,
+pub const LabelLiteral = struct {
+    label: Label,
 
-    pub fn from(iter: TokenIterator) ParseError!Label {
+    pub fn from(iter: TokenIterator) ParseError!LabelLiteral {
         _ = try iter.require("#");
-        const label_token: Token = try iter.requireType(@tagName(Token.identifier));
+        const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
 
-        return .{ .label = label_token.toString().? };
+        if (iter.peek()) |next_tok| {
+            // #accuracy = 2
+            // #rank = s
+            if (next_tok.symbolEquals("=")) {
+                // consume because we already have the next token
+                _ = iter.next();
+                // TODO: get da value
+                next_tok = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier), @tagName(Token.numeric) });
+                return .{ .label = try Label.from(label_token.toString().?, next_tok.toString()) };
+            }
+        }
+
+        return .{ .label = try Label.from(label_token.toString().?, null) };
     }
 
     pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
-        const self: *Label = @ptrCast(@alignCast(this_ptr));
-        if (Expression.Label.from(self.label)) |l| {
-            return .{ .label = l };
-        }
-        return Error.InvalidLabel;
+        const self: *LabelLiteral = @ptrCast(@alignCast(this_ptr));
+        return .{ .label = self.label };
     }
 
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
-    }
-
-    pub fn expr(self: *Label) Expression {
+    pub fn expr(self: *LabelLiteral) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -234,7 +210,7 @@ pub const Identifier = struct {
     name: []const u8,
 
     pub fn from(iter: TokenIterator) ParseError!Identifier {
-        const identifier_token: Token = try iter.requireType(@tagName(Token.identifier));
+        const identifier_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
         return .{ .name = identifier_token.toString().? };
     }
 
@@ -244,19 +220,13 @@ pub const Identifier = struct {
         if (symbol_table.getSymbol(self.name)) |value| {
             return .{ .identifier = value };
         }
-        return Result.UndefinedIdentifier;
-    }
-
-    pub fn evaluateAlloc(_: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        return evaluate(this_ptr, symbol_table);
+        return Error.UndefinedIdentifier;
     }
 
     pub fn expr(self: *Identifier) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = false,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -269,17 +239,10 @@ pub const ParensthesizedExpression = struct {
         return self.inner.evaluate(symbol_table);
     }
 
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
-        return self.inner.evaluate(allocator, symbol_table);
-    }
-
     pub fn expr(self: *ParensthesizedExpression) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = self.inner.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -292,18 +255,7 @@ pub const UnaryExpression = struct {
         const self: *UnaryExpression = @ptrCast(@alignCast(this_ptr));
 
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
-        return self.evaluate_internal(rh_result);
-    }
-
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *UnaryExpression = @ptrCast(@alignCast(this_ptr));
-
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-        return self.evaluate_internal(rh_result);
-    }
-
-    fn evaluateInternal(self: UnaryExpression, result: Result) Error!Result {
-        switch (result) {
+        switch (rh_result) {
             Result.boolean => |x| {
                 if (self.op.expectSymbolEquals("~")) {
                     return !x;
@@ -327,9 +279,7 @@ pub const UnaryExpression = struct {
     pub fn expr(self: *UnaryExpression) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = self.rhs.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -345,25 +295,12 @@ pub const AdditiveExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
-
-        const lh_result: Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    fn evaluateInternal(lhs: Result, rhs: Result, operator: Token) Error!Result {
-        switch (lhs) {
+        switch (lh_result) {
             Result.integer => |lh_int| {
                 // rhs can only be an integer in this case
-                const rh_int: i32 = try rhs.expectType(i32) catch { return Error.OperandTypeMismatch; };
-                try operator.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-" });
-                if (operator.stringEquals("+")) {
+                const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeMismatch; };
+                try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-" });
+                if (self.op.stringEquals("+")) {
                     return .{ .integer = lh_int + rh_int };
                 }
                 else {
@@ -371,12 +308,12 @@ pub const AdditiveExpression = struct {
                 }
             },
             Result.list => |lh_list| {
-                try operator.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
-                if (rhs.isList()) |rh_list| {
-                    var new_list: Expression.ListResult = undefined;
-                    if (operator.stringEquals("+")) {
+                try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
+                if (rh_result.isList()) |rh_list| {
+                    var new_list: ListResult = undefined;
+                    if (self.op.stringEquals("+")) {
                         new_list = try lh_list.append(rh_list);
-                    } else if (operator.stringEquals("+!")) {
+                    } else if (self.op.stringEquals("+!")) {
                         new_list = try lh_list.appendUnique(rh_list);
                     } else {
                         new_list = try lh_list.remove(rh_list);
@@ -384,13 +321,13 @@ pub const AdditiveExpression = struct {
 
                     return .{ .list = new_list };
                 } else {
-                    var new_list: Expression.ListResult = undefined;
-                    if (operator.stringEquals("+")) {
-                        new_list = try lh_list.appendOne(rhs);
-                    } else if (operator.stringEquals("+!")) {
-                        new_list = try lh_list.appendOneUnique(rhs);
+                    var new_list: ListResult = undefined;
+                    if (self.op.stringEquals("+")) {
+                        new_list = try lh_list.appendOne(rh_result);
+                    } else if (self.op.stringEquals("+!")) {
+                        new_list = try lh_list.appendOneUnique(rh_result);
                     } else {
-                        new_list = try lh_list.removeOne(rhs);
+                        new_list = try lh_list.removeOne(rh_result);
                     }
 
                     return .{ .list = new_list };
@@ -403,9 +340,7 @@ pub const AdditiveExpression = struct {
     pub fn expr(self: *AdditiveExpression) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -423,25 +358,10 @@ pub const FactorExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
+        const lh_int: i32 = try lh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
+        const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
 
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
-
-        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "*", "/" });
-
-        const lh_result: Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    fn evaluateInternal(lhs: Result, rhs: Result, operator: Token) Error!Result {
-        const lh_int: i32 = try lhs.expectType(i32) catch { return Error.OperandTypeNotSupported; };
-        const rh_int: i32 = try rhs.expectType(i32) catch { return Error.OperandTypeNotSupported; };
-
-        if (operator.stringEquals("*")) {
+        if (self.op.stringEquals("*")) {
             return .{ .integer = lh_int * rh_int };
         } else {
             return .{ .integer = lh_int / rh_int };
@@ -451,9 +371,7 @@ pub const FactorExpression = struct {
     pub fn expr(self: *FactorExpression) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -471,29 +389,14 @@ pub const ComparisonExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
+        const lh_int: i32 = try lh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
+        const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
 
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
-
-        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "<", "<=", ">=", ">" });
-
-        const lh_result: Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    fn evaluateInternal(lhs: Result, rhs: Result, operator: Token) Error!Result {
-        const lh_int: i32 = try lhs.expectType(i32) catch { return Error.OperandTypeNotSupported; };
-        const rh_int: i32 = try rhs.expectType(i32) catch { return Error.OperandTypeNotSupported; };
-
-        if (operator.stringEquals("<")) {
+        if (self.op.stringEquals("<")) {
             return .{ .boolean = lh_int < rh_int };
-        } else if (operator.stringEquals("<=")) {
+        } else if (self.op.stringEquals("<=")) {
             return .{ .boolean = lh_int <= rh_int };
-        } else if (operator.stringEquals(">=")) {
+        } else if (self.op.stringEquals(">=")) {
             return .{ .boolean = lh_int >= rh_int };
         } else {
             return .{ .boolean = lh_int > rh_int };
@@ -503,9 +406,7 @@ pub const ComparisonExpression = struct {
     pub fn expr(self: *ComparisonExpression) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
             .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
         };
     }
 };
@@ -523,33 +424,18 @@ pub const EqualityExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
-
-        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "==", "~=" });
-
-        const lh_result: Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    fn evaluateInternal(lhs: Result, rhs: Result, operator: Token) Error!Result {
-        switch (lhs) {
+        switch (lh_result) {
             Result.integer => |lh_int| {
-                const rh_int: i32 = try rhs.expectType(i32) catch { return Error.OperandTypeNotSupported; };
-                if (operator.stringEquals("==")) {
+                const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
+                if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_int == rh_int };
                 } else {
                     return .{ .boolean = lh_int != rh_int };
                 }
             },
             Result.boolean => |lh_bool| {
-                const rh_bool: bool = try rhs.expectType(bool) catch { return Error.OperandTypeNotSupported; };
-                if (operator.stringEquals("==")) {
+                const rh_bool: bool = try rh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
+                if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_bool == rh_bool };
                 } else {
                     return .{ .boolean = lh_bool != rh_bool };
@@ -562,9 +448,7 @@ pub const EqualityExpression = struct {
     pub fn expr(self: *EqualityExpression) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -582,26 +466,11 @@ pub const BooleanExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    pub fn evaluateAlloc(allocator: Allocator, this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
-        const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
-
-        try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "|", "^" });
-
-        const lh_result: Result = try self.lhs.evaluateAlloc(allocator, symbol_table);
-        const rh_result: Result = try self.rhs.evaluateAlloc(allocator, symbol_table);
-
-        return evaluateInternal(lh_result, rh_result, self.op);
-    }
-
-    fn evaluateInternal(lhs: Result, rhs: Result, operator: Token) Error!Result {
-        const lh_bool: bool = try lhs.expectType(bool) catch { return Error.OperandTypeNotSupported; };
-        const rh_bool: bool = try rhs.expectType(bool) catch { return Error.OperandTypeNotSupported; };
-        if (operator.stringEquals("+")) {
+        const lh_bool: bool = try lh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
+        const rh_bool: bool = try rh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
+        if (self.op.stringEquals("+")) {
             return .{ .boolean = lh_bool and rh_bool };
-        } else if (operator.stringEquals("|")) {
+        } else if (self.op.stringEquals("|")) {
             return .{ .boolean = lh_bool or rh_bool };
         } else {
             return .{ .boolean = (!lh_bool and rh_bool) or (lh_bool and !rh_bool) };
@@ -611,9 +480,7 @@ pub const BooleanExpression = struct {
     pub fn expr(self: *BooleanExpression) Expression {
         return .{
             .ptr = self,
-            .requires_alloc = self.lhs.requires_alloc or self.rhs.requires_alloc,
-            .evaluateFn = &evaluate,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
@@ -627,38 +494,39 @@ pub const TargetExpression = struct {
     amount: Expression,
     pool: Expression,
 
-    pub fn evaluateAlloc(
-        allocator: Allocator,
-        this_ptr: *anyopaque,
-        symbol_table: SymbolTable
-    ) Error!Result {
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *TargetExpression = @ptrCast(@alignCast(this_ptr));
 
-        const eval_amount: Result = try self.amount.evaluateAlloc(allocator, symbol_table);
-        const eval_pool: Result = try self.pool.evaluateAlloc(allocator, symbol_table);
+        const eval_amount: Result = try self.amount.evaluate(symbol_table);
+        const eval_pool: Result = try self.pool.evaluate(symbol_table);
 
         const eval_int: i32 = try eval_amount.expectType(i32);
         if (eval_int < 1) {
             return Error.MustBeGreaterThanZero;
         }
 
-        const eval_list: Expression.ListResult = try eval_pool.expectType(Expression.ListResult);
+        const eval_list: ListResult = try eval_pool.expectType(ListResult);
         // TODO: determine if up-to operator was used (^)
-        return try symbol_table.getPlayerChoice(@bitCast(eval_int), eval_list.items, false);
+        if (symbol_table.getPlayerChoice(@bitCast(eval_int), eval_list.items, false)) |choice| {
+            return choice;
+        } else |err| {
+            switch (err) {
+                error.NotImplemented => std.builtin.panic("This is not yet implemented"),
+                else => return err
+            }
+        }
     }
 
     pub fn expr(self: *TargetExpression) Expression {
         return Expression {
             .ptr = self,
-            .requires_alloc = true,
-            .evaluateFn = &Expression.errRequireAlloc,
-            .evaluateAllocFn = &evaluateAlloc
+            .evaluateFn = &evaluate
         };
     }
 };
 
 pub const AccessorExpression = struct {
-    member: []const u8,
+    accessor_chain: []Identifier,
     
     // TODO: Implement scopes
 };

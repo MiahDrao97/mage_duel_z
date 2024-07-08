@@ -32,5 +32,10 @@ pub fn Iterator(comptime T: type) type {
         pub fn reset(self: *Self) void {
             self.setIndexTo(0);
         }
+
+        /// Scroll forward or backward x
+        pub fn scroll(self: *Self, amount: isize) void {
+            self.i += amount;
+        }
     };
 }

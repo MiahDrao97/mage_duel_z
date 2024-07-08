@@ -17,3 +17,4 @@ pub const SymbolTable = expression.SymbolTable;
 pub const Symbol = expression.Symbol;
 pub const Scope = expression.Scope;
 pub const FunctionDef = expression.FunctionDef;
+pub const Statement = @import("Statement.zig");
