@@ -291,7 +291,7 @@ pub const Label = union(enum) {
     }
 };
 
-pub const FunctionDef = *const fn (*anyopaque) anyerror!Result;
+pub const FunctionDef = *const fn ([]Result) anyerror!Result;
 
 pub const Symbol = union(enum) {
     value: *Result,
@@ -415,7 +415,10 @@ const InnerError = error {
     OperandTypeMismatch,
     UnexpectedType,
     ElementTypesVary,
-    MustBeGreaterThanZero
+    MustBeGreaterThanZero,
+    InvalidAccessorChain,
+    PrematureAccessorTerminus,
+    FailedFunctionInvocation
 };
 
 pub const Error = InnerError || Allocator.Error;

@@ -1,7 +1,7 @@
 const expression = @import("expression.zig");
 const SymbolTable = expression.SymbolTable;
 
-const Statement = @This();
+pub const Statement = @This();
 
 ptr: *anyopaque,
 executeFn: *const fn (*anyopaque, SymbolTable) anyerror!void,

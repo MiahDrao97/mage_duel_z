@@ -526,7 +526,58 @@ pub const TargetExpression = struct {
 };
 
 pub const AccessorExpression = struct {
+    // TODO: this member type is subject to change
     accessor_chain: []Identifier,
     
-    // TODO: Implement scopes
+    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+        const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
+
+        // we need at least one '.' for this to be a full accessor chain
+        if (self.accessor_chain < 2) {
+            return Error.InvalidAccessorChain;
+        }
+
+        var current_symbol: Symbol = undefined;
+        var previous_node_name: []const u8 = undefined;
+        for (self.accessor_chain, 0..) |member, i| {
+            if (i == 0) {
+                const root: Result = try member.expr().evaluate(symbol_table);
+                current_symbol = root.expectType(Symbol);
+                previous_node_name = member.name;
+                continue;
+            }
+
+            std.debug.assert(i > 0);
+            switch(current_symbol) {
+                Symbol.complex_object => |o| {
+                    if (i < self.accessor_chain.len - 1) {
+                        current_symbol = o.getSymbol(member.name) orelse {
+                            std.log.err("Member '{s}' was not found on {s}.", .{ member.name, previous_node_name });
+                            return Error.UndefinedIdentifier;
+                        };
+                    } else {
+                        return o;
+                    }
+                },
+                Symbol.function => |_| {
+                    // TODO: evaluate and set the value to the current symbol
+                    // union type with identifiers and function calls may be required
+                    // Since functions can also return complex objects, is Result the right return type? Or should it be Symbol?
+                },
+                else => |x| {
+                    if (i < self.accessor_chain.len - 1) {
+                        return Error.PrematureAccessorTerminus;
+                    }
+                    return x;
+                }
+            }
+        }
+    }
+
+    pub fn expr(self: *AccessorExpression) Expression {
+        return .{
+            .ptr = self,
+            .evaluateFn = &evaluate
+        };
+    }
 };
