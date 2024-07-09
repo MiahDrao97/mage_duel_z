@@ -22,7 +22,6 @@ const FunctionCall = struct {
 
     pub fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
-        
         const function_def: FunctionDef = symbol_table.getSymbol(self.name) orelse return error.FunctionDefinitionNotFound;
 
         const args_list: []Result = symbol_table.allocator.alloc(Result, self.args.len);
@@ -32,7 +31,7 @@ const FunctionCall = struct {
             args_list[i] = try arg.evaluate(symbol_table);
         }
 
-        try function_def(args_list);
+        _ = try function_def(args_list);
     }
 
     pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
@@ -47,10 +46,10 @@ const FunctionCall = struct {
         }
 
         return function_def(args_list) catch |err| {
-            std.log.err("Caught error while executing '{s}(...)': {any}-->\n{s}", .{
+            std.log.err("Caught error while executing '{s}(...)': {any}-->\n{any}", .{
                 self.name,
                 err,
-                @errorReturnTrace() orelse "[Stack trace unavailable]"
+                @errorReturnTrace().?
             });
             return Error.FailedFunctionInvocation;
         };
