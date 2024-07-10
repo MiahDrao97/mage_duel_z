@@ -5,6 +5,7 @@ const imports = struct {
     usingnamespace @import("util");
     usingnamespace @import("game_zones");
     usingnamespace @import("expression.zig");
+    usingnamespace @import("concrete_statements.zig");
 };
 
 const Allocator = std.mem.Allocator;
@@ -20,6 +21,7 @@ const Symbol = imports.Symbol;
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const ParseTokenError = imports.ParseTokenError;
+const FunctionCall = imports.FunctionCall;
 
 const InnerError = error {
     UnexpectedToken
@@ -40,7 +42,7 @@ pub const IntegerLiteral = struct {
         return ParseError.EOF;
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *IntegerLiteral = @ptrCast(@alignCast(this_ptr));
         return .{ .integer = self.val };
     }
@@ -66,7 +68,7 @@ pub const BooleanLiteral = struct {
         return ParseError.EOF;
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *BooleanLiteral = @ptrCast(@alignCast(this_ptr));
         return .{ .boolean = self.val };
     }
@@ -92,7 +94,7 @@ pub const DamageTypeLiteral = struct {
         return ParseError.EOF;
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *DamageTypeLiteral = @ptrCast(@alignCast(this_ptr));
         return .{ .damage_type = self.val };
     }
@@ -128,7 +130,7 @@ pub const DiceLiteral = struct {
         return ParseError.EOF;
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *DiceLiteral = @ptrCast(@alignCast(this_ptr));
         return .{
             .dice = .{
@@ -151,7 +153,7 @@ pub const DiceLiteral = struct {
 pub const ListLiteral = struct {
     vals: []Expression,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *ListLiteral = @ptrCast(@alignCast(this_ptr));
         const evaluated: []Result = try symbol_table.allocator.alloc(Result);
 
@@ -193,7 +195,7 @@ pub const LabelLiteral = struct {
         return .{ .label = try Label.from(label_token.toString().?, null) };
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *LabelLiteral = @ptrCast(@alignCast(this_ptr));
         return .{ .label = self.label };
     }
@@ -214,7 +216,7 @@ pub const Identifier = struct {
         return .{ .name = identifier_token.toString().? };
     }
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *Identifier = @ptrCast(@alignCast(this_ptr));
 
         if (symbol_table.getSymbol(self.name)) |value| {
@@ -234,7 +236,7 @@ pub const Identifier = struct {
 pub const ParensthesizedExpression = struct {
     inner: Expression,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
         return self.inner.evaluate(symbol_table);
     }
@@ -251,7 +253,7 @@ pub const UnaryExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *UnaryExpression = @ptrCast(@alignCast(this_ptr));
 
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
@@ -289,7 +291,7 @@ pub const AdditiveExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
 
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
@@ -333,6 +335,13 @@ pub const AdditiveExpression = struct {
                     return .{ .list = new_list };
                 }
             },
+            Result.dice => |*lh_dice| {
+                try self.op.expectStringEqualsOneOf(&[_][]const u8 { "+", "-" });
+                const rh_int: i32 = try rh_result.expectType(i32);
+
+                lh_dice.*.modifier += rh_int;
+                return .{ .dice = lh_dice };
+            },
             else => return Error.OperandTypeNotSupported
         }
     }
@@ -350,7 +359,7 @@ pub const FactorExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *FactorExpression = @ptrCast(@alignCast(this_ptr));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "*", "/" });
@@ -381,7 +390,7 @@ pub const ComparisonExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "<", "<=", ">=", ">" });
@@ -416,7 +425,7 @@ pub const EqualityExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "==", "~=" });
@@ -458,7 +467,7 @@ pub const BooleanExpression = struct {
     rhs: Expression,
     op: Token,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "|", "^" });
@@ -494,7 +503,7 @@ pub const TargetExpression = struct {
     amount: Expression,
     pool: Expression,
 
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *TargetExpression = @ptrCast(@alignCast(this_ptr));
 
         const eval_amount: Result = try self.amount.evaluate(symbol_table);
@@ -526,10 +535,26 @@ pub const TargetExpression = struct {
 };
 
 pub const AccessorExpression = struct {
-    // TODO: this member type is subject to change
-    accessor_chain: []Identifier,
+    pub const Link = union(enum) {
+        function_call: FunctionCall,
+        idententifier: Identifier,
+
+        pub fn getName(self: Link) []const u8 {
+            switch (self) {
+                inline else => |x| return x.name
+            }
+        }
+
+        pub fn expr(self: Link) Expression {
+            switch (self) {
+                inline else => |x| return x.expr()
+            }
+        }
+    };
+
+    accessor_chain: []Link,
     
-    pub fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
         const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
 
         // we need at least one '.' for this to be a full accessor chain
@@ -543,7 +568,7 @@ pub const AccessorExpression = struct {
             if (i == 0) {
                 const root: Result = try member.expr().evaluate(symbol_table);
                 current_symbol = root.expectType(Symbol);
-                previous_node_name = member.name;
+                previous_node_name = member.getName();
                 continue;
             }
 
@@ -556,19 +581,23 @@ pub const AccessorExpression = struct {
                             return Error.UndefinedIdentifier;
                         };
                     } else {
-                        return o;
+                        return .{ .identifier = o.* };
                     }
                 },
                 Symbol.function => |_| {
-                    // TODO: evaluate and set the value to the current symbol
-                    // union type with identifiers and function calls may be required
-                    // Since functions can also return complex objects, is Result the right return type? Or should it be Symbol?
+                    if (i < self.accessor_chain.len - 1) {
+                        // function args are stored on the member, so just evaluate
+                        current_symbol = try member.expr().evaluate();
+                    } else {
+                        // can't return a function
+                        return Error.HigherOrderFunctionsNotSupported;
+                    }
                 },
-                else => |x| {
+                Symbol.value => |x| {
                     if (i < self.accessor_chain.len - 1) {
                         return Error.PrematureAccessorTerminus;
                     }
-                    return x;
+                    return x.*;
                 }
             }
         }

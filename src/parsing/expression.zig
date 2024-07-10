@@ -18,10 +18,11 @@ pub const Result = union(enum) {
     boolean: bool,
     damage_type: DamageType,
     damage_transaction: DamageTransaction,
-    dice: struct { count: u16, dice: Dice },
+    dice: DiceResult,
     list: ListResult,
     label: Label,
     identifier: Symbol,
+    void: void,
     // TODO: add player, cards, decks, etc.
 
     pub fn as(self: Result, comptime T: type) ?T {
@@ -42,6 +43,12 @@ pub const Result = union(enum) {
     pub fn isList(self: Result) ?ListResult {
         return self.as(ListResult);
     }
+};
+
+pub const DiceResult = struct {
+    count: u16,
+    dice: Dice,
+    modifier: i32 = 0,
 };
 
 pub const ListResult = struct {
@@ -338,15 +345,6 @@ pub const Scope = struct {
         self.symbols.deinit();
         self.allocator.destroy(self);
     }
-
-    /// Recursively destroys all outer scopes as well as this one.
-    /// Should only be used when the symbol table `deinit`'s or else unepxected behavior will occur.
-    pub fn deinitAllScopes(self: *Scope) void {
-        if (self.outer) |outer| {
-            outer.deinitAllScopes();
-        }
-        self.deinit();
-    }
 };
 
 pub const SymbolTable = struct {
@@ -401,7 +399,12 @@ pub const SymbolTable = struct {
     }
 
     pub fn deinit(self: *SymbolTable) void {
-        self.current_scope.deinitAllScopes();
+        var current: ?*Scope = self.current_scope;
+        while (current) |scope| {
+            // assign next before we kill current
+            current = scope.outer;
+            scope.deinit();
+        }
         self.* = undefined;
     }
 };
@@ -418,7 +421,8 @@ const InnerError = error {
     MustBeGreaterThanZero,
     InvalidAccessorChain,
     PrematureAccessorTerminus,
-    FailedFunctionInvocation
+    FunctionInvocationFailed,
+    HigherOrderFunctionsNotSupported
 };
 
 pub const Error = InnerError || Allocator.Error;
