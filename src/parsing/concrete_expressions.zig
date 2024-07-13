@@ -494,9 +494,6 @@ pub const BooleanExpression = struct {
     }
 };
 
-// TODO: target expression, accessor expression, damage transaction (?)
-// Function calls double as a statement and expression, so I'll define that with the concrete statements
-
 /// Ex.
 /// `target(1 in from Monster)`
 pub const TargetExpression = struct {

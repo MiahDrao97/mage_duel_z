@@ -18,6 +18,8 @@ const FunctionDef = imports.FunctionDef;
 const DiceResult = imports.DiceResult;
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
+const IntegerLiteral = imports.IntegerLiteral;
+const TargetExpression = imports.TargetExpression;
 
 pub const FunctionCall = struct {
     name: []const u8,
@@ -120,17 +122,129 @@ pub const IfStatement = struct {
     condition: Expression,
     true_statements: []Statement,
     else_statements: []Statement,
+
+    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+        const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
+
+        const condition_eval: Result = try self.condition.evaluate(symbol_table);
+        const condition: bool = try condition_eval.expectType(bool);
+
+        if (condition) {
+            for (self.true_statements) |true_stmt| {
+                try symbol_table.newScope();
+                defer symbol_table.endScope();
+
+                try true_stmt.execute(symbol_table);
+            }
+        } else {
+            for (self.else_statements) |else_stmt| {
+                try symbol_table.newScope();
+                defer symbol_table.endScope();
+
+                try else_stmt.execute(symbol_table);
+            }
+        }
+    }
+
+    pub fn stmt(self: *IfStatement) Statement {
+        return .{
+            .ptr = self,
+            .executeFn = &execute
+        };
+    }
 };
 
 pub const ForLoop = struct {
     identifier: []const u8,
     range: Expression,
     statements: []Statement,
+
+    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+        const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
+        
+        const range_eval: Result = try self.range.evaluate(symbol_table);
+        switch (range_eval) {
+            Result.list => |list| {
+                try self.executeList(list.items, symbol_table);
+            },
+            Result.integer => |i| {
+                if (i < 0) {
+                    return error.RangeCannotBeNegative;
+                }
+                try self.executeRange(i, symbol_table);
+            },
+            else => return error.InvalidRangeExpression
+        }
+    }
+
+    fn executeList(self: ForLoop, items: []Result, symbol_table: SymbolTable) !void {
+        for (items) |*item| {
+            try symbol_table.newScope();
+            defer symbol_table.endScope();
+
+            try symbol_table.putSymbol(self.identifier, .{ .value = item });
+            for (self.statements) |inner_stmt| {
+                try inner_stmt.execute(symbol_table);
+            }
+        }
+    }
+
+    fn executeRange(self: ForLoop, range: i32, symbol_table: SymbolTable) !void {
+        std.debug.assert(range >= 0);
+
+        for (0..range) |i| {
+            try symbol_table.newScope();
+            defer symbol_table.endScope();
+
+            try symbol_table.putSymbol(self.identifier, .{
+                .value = &Result {
+                    .integer = i
+                }
+            });
+            for (self.statements) |inner_stmt| {
+                try inner_stmt.execute(symbol_table);
+            }
+        }
+    }
+
+    pub fn stmt(self: *ForLoop) Statement {
+        return .{
+            .ptr = self,
+            .executeFn = &execute
+        };
+    }
 };
 
 pub const ActionDefinitionStatement = struct {
-    // TODO: handle action costs
+    pub const ActionCostExpr = union(enum) {
+        flat: IntegerLiteral,
+        dynamic: TargetExpression
+    };
+
+    action_cost: ActionCostExpr,
     statements: []Statement,
+
+    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
+
+        // operating under the guise that the action cost has been paid
+        for (self.statements) |inner_stmt| {
+            try inner_stmt.execute(symbol_table);
+        }
+    }
+
+    pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
+        switch (self.action_cost) {
+            inline else => |x| return try x.evaluate(symbol_table)
+        }
+    }
+
+    pub fn stmt(self: *ActionDefinitionStatement) Statement {
+        return .{
+            .ptr = self,
+            .executeFn = &execute
+        };
+    }
 };
 
 // for now, skipping function defs
