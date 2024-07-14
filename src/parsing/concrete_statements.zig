@@ -20,10 +20,30 @@ const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const IntegerLiteral = imports.IntegerLiteral;
 const TargetExpression = imports.TargetExpression;
+const Allocator = std.mem.Allocator;
 
 pub const FunctionCall = struct {
     name: []const u8,
     args: []Expression,
+    allocator: Allocator,
+
+    pub fn init(
+        allocator: Allocator,
+        name: []const u8,
+        args: []Expression
+    ) FunctionCall {
+        return .{
+            .name = name,
+            .args = args,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *FunctionCall) void {
+        self.allocator.free(self.name);
+        self.allocator.free(self.args);
+        self.* = undefined;
+    }
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
@@ -60,10 +80,16 @@ pub const FunctionCall = struct {
         };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *FunctionCall) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
     }
 
@@ -122,6 +148,36 @@ pub const IfStatement = struct {
     condition: Expression,
     true_statements: []Statement,
     else_statements: []Statement,
+    allocator: Allocator,
+
+    /// Inits a new `IfStatement` instance.
+    /// `true_statements` and `else_statements` were presumably allocated by `allocator`.
+    /// This structure owns that memory.
+    pub fn init(
+        allocator: Allocator,
+        condition: Expression,
+        true_statements: []Statement,
+        else_statements: []Statement
+    ) IfStatement {
+        return .{
+            .condition = condition,
+            .true_statements = true_statements,
+            .else_statements = else_statements,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *IfStatement) void {
+        for (self.true_statements) |inner_stmt| {
+            inner_stmt.deinit();
+        }
+        for (self.else_statements) |inner_stmt| {
+            inner_stmt.deinit();
+        }
+        self.allocator.free(self.true_statements);
+        self.allocator.free(self.else_statements);
+        self.* = undefined;
+    }
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
@@ -146,10 +202,16 @@ pub const IfStatement = struct {
         }
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn stmt(self: *IfStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute
+            .executeFn = &execute,
+            .deinitFn = &deinitFn
         };
     }
 };
@@ -158,6 +220,33 @@ pub const ForLoop = struct {
     identifier: []const u8,
     range: Expression,
     statements: []Statement,
+    allocator: Allocator,
+
+    /// Inits a new `ForLoop` instance.
+    /// `identifer` and `statements` were presumably allocated by `allocator`.
+    /// This structure owns that memory.
+    pub fn init(
+        allocator: Allocator,
+        identifier: []const u8,
+        range: Expression,
+        statements: []Statement
+    ) ForLoop {
+        return .{
+            .idententifier = identifier,
+            .range = range,
+            .statements = statements,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *ForLoop) void {
+        for (self.statements) |inner_stmt| {
+            inner_stmt.deinit();
+        }
+        self.allocator.free(self.identifier);
+        self.allocator.free(self.statements);
+        self.* = undefined;
+    }
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
@@ -207,10 +296,16 @@ pub const ForLoop = struct {
         }
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn stmt(self: *ForLoop) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute
+            .executeFn = &execute,
+            .deinitFn = &deinitFn
         };
     }
 };
@@ -223,6 +318,23 @@ pub const ActionDefinitionStatement = struct {
 
     action_cost: ActionCostExpr,
     statements: []Statement,
+    allocator: Allocator,
+
+    pub fn init(allocator: Allocator, statements: []Statement, action_cost: ActionCostExpr) ActionDefinitionStatement {
+        return .{
+            .action_cost = action_cost,
+            .statements = statements,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *ActionDefinitionStatement) void {
+        for (self.statements) |inner_stmt| {
+            inner_stmt.deinit();
+        }
+        self.allocator.free(self.statements);
+        self.* = undefined;
+    }
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
@@ -231,6 +343,11 @@ pub const ActionDefinitionStatement = struct {
         for (self.statements) |inner_stmt| {
             try inner_stmt.execute(symbol_table);
         }
+    }
+
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
     }
 
     pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
@@ -242,9 +359,12 @@ pub const ActionDefinitionStatement = struct {
     pub fn stmt(self: *ActionDefinitionStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute
+            .executeFn = &execute,
+            .deinitFn = &deinitFn
         };
     }
 };
+
+// TODO: assignment statment
 
 // for now, skipping function defs

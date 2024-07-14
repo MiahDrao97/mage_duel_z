@@ -2,6 +2,7 @@ const std = @import("std");
 const tokens = @import("tokens.zig");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
+const TokenIterator = tokens.TokenIterator;
 
 pub const Tokenizer = @import("tokenizer.zig");
 pub const TokenizerError = Tokenizer.TokenizerError;
@@ -21,17 +22,77 @@ pub const Symbol = expression.Symbol;
 pub const Scope = expression.Scope;
 pub const FunctionDef = expression.FunctionDef;
 pub const Statement = @import("Statement.zig");
+pub const concrete_statements = @import("concrete_statements.zig");
+pub const ActionDefinitionStatement = concrete_statements.ActionDefinitionStatement;
 pub const Label = expression.Label;
+
+const LabelLiteral = concrete_expressions.LabelLiteral;
 
 pub const CardDef = struct {
     labels: []Label,
-    statements: []Statement,
+    actions: []ActionDefinitionStatement,
 };
 
 pub fn parseTokens(allocator: Allocator, to_parse: []Token) !CardDef {
-    var statements = try ArrayList(Statement).initCapacity(allocator, to_parse.len);
-    errdefer statements.deinit();
+    var actions = try ArrayList(ActionDefinitionStatement).initCapacity(allocator, to_parse.len);
+    errdefer actions.deinit();
 
     var labels = ArrayList(Label).init(allocator);
     errdefer labels.deinit();
+
+    const iter: TokenIterator = try TokenIterator.from(allocator, to_parse);
+
+    // topmost level
+    while (iter.peek()) |next| {
+        if (next.stringEquals("#")) {
+            // parse label
+            const label_expr: LabelLiteral = try LabelLiteral.from(iter);
+            try labels.append(label_expr.label);
+        } else if (next.stringEquals("[")) {
+            const statement: ActionDefinitionStatement = try parseActionDefinitionStatement(allocator, iter);
+            try actions.append(statement);
+        } else {
+            std.log.err("Unable to parse label or action definition statement with token: '{s}'",
+                .{ next.toString() orelse @tagName(next) });
+            return error.UnexpectedToken;
+        }
+    }
+}
+
+fn parseActionDefinitionStatement(allocator: Allocator, iter: TokenIterator) !ActionDefinitionStatement {
+    var statements = ArrayList(Statement).init(allocator);
+    errdefer statements.deinit();
+
+    _ = try iter.require("[");
+    const actionCost: ActionDefinitionStatement.ActionCostExpr = try parseExpression(iter);
+    
+    _ = try iter.require("]");
+    _ = try iter.require("{");
+
+    while (iter.peek()) |next| {
+        if (next.stringEquals("}")) {
+            break;
+        }
+        try statements.append(try parseStatement(iter));
+    }
+
+    _ = try iter.require("}");
+
+    const statements_slice: []Statement = try statements.toOwnedSlice();
+    return ActionDefinitionStatement.init(allocator, statements_slice, actionCost);
+}
+
+fn parseActionCostExpr(iter: TokenIterator) !ActionDefinitionStatement.ActionCostExpr {
+    _ = &iter;
+    return error.NotImplemented;
+}
+
+fn parseStatement(iter: TokenIterator) !Expression {
+    _ = &iter;
+    return error.NotImplemented;
+}
+
+fn parseExpression(iter: TokenIterator) !Expression {
+    _ = &iter;
+    return error.NotImplemented;
 }
