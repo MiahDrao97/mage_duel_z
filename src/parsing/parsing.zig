@@ -27,6 +27,8 @@ pub const ActionDefinitionStatement = concrete_statements.ActionDefinitionStatem
 pub const Label = expression.Label;
 
 const LabelLiteral = concrete_expressions.LabelLiteral;
+const IntegerLiteral = concrete_expressions.IntegerLiteral;
+const TargetExpression = concrete_expressions.TargetExpression;
 
 pub const CardDef = struct {
     labels: []Label,
@@ -64,7 +66,7 @@ fn parseActionDefinitionStatement(allocator: Allocator, iter: TokenIterator) !Ac
     errdefer statements.deinit();
 
     _ = try iter.require("[");
-    const actionCost: ActionDefinitionStatement.ActionCostExpr = try parseExpression(iter);
+    const actionCost: ActionDefinitionStatement.ActionCostExpr = try parseActionCostExpr(iter);
     
     _ = try iter.require("]");
     _ = try iter.require("{");
@@ -83,16 +85,46 @@ fn parseActionDefinitionStatement(allocator: Allocator, iter: TokenIterator) !Ac
 }
 
 fn parseActionCostExpr(iter: TokenIterator) !ActionDefinitionStatement.ActionCostExpr {
-    _ = &iter;
-    return error.NotImplemented;
+    if (IntegerLiteral.from(iter)) |int| {
+        // this is the most common case
+        return .{ .flat = int };
+    } else |_| {
+        return .{ .dynamic = try parseTargetExpression(iter) };
+    }
 }
 
 fn parseStatement(iter: TokenIterator) !Expression {
-    _ = &iter;
+    while (iter.peek()) |next| {
+        if (next.stringEquals("if")) {
+
+        } else if (next.stringEquals("for")) {
+
+        } else {
+            // damage statement, assignment statement
+        }
+    }
     return error.NotImplemented;
 }
 
 fn parseExpression(iter: TokenIterator) !Expression {
     _ = &iter;
     return error.NotImplemented;
+}
+
+fn parseTargetExpression(iter: TokenIterator) !TargetExpression {
+    // target(1 from [ 1 | 2 ])
+
+    _ = try iter.require("target");
+    _ = try iter.require("(");
+    const amount: Expression = try parseExpression(iter);
+
+    _ = try iter.require("from");
+    const pool: Expression = try parseExpression(iter);
+
+    _ = try iter.require(")");
+
+    return TargetExpression {
+        .amount = amount,
+        .pool = pool
+    };
 }

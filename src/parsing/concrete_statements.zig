@@ -267,11 +267,11 @@ pub const ForLoop = struct {
     }
 
     fn executeList(self: ForLoop, items: []Result, symbol_table: SymbolTable) !void {
-        for (items) |*item| {
+        for (items) |item| {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putSymbol(self.identifier, .{ .value = item });
+            try symbol_table.putValue(self.identifier, item);
             for (self.statements) |inner_stmt| {
                 try inner_stmt.execute(symbol_table);
             }
@@ -285,11 +285,7 @@ pub const ForLoop = struct {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putSymbol(self.identifier, .{
-                .value = &Result {
-                    .integer = i
-                }
-            });
+            try symbol_table.putValue(self.identifier, Result { .integer = i });
             for (self.statements) |inner_stmt| {
                 try inner_stmt.execute(symbol_table);
             }
@@ -320,6 +316,9 @@ pub const ActionDefinitionStatement = struct {
     statements: []Statement,
     allocator: Allocator,
 
+    /// Init's a new instance of `ActionDefinitionStatement`.
+    /// `statements` is presumably allocated by `allocator`.
+    /// That memory is owned by this structure.
     pub fn init(allocator: Allocator, statements: []Statement, action_cost: ActionCostExpr) ActionDefinitionStatement {
         return .{
             .action_cost = action_cost,
@@ -365,6 +364,50 @@ pub const ActionDefinitionStatement = struct {
     }
 };
 
-// TODO: assignment statment
+pub const AssignmentStatement = struct {
+    identifier: []const u8,
+    value: Expression,
+    allocator: Allocator,
+
+    /// Init's a new instance of `AssignmentStatement`.
+    /// `identifier` was presumably allocated by `allocator`.
+    /// This structure owns that memory.
+    pub fn init(
+        allocator: Allocator,
+        identifier: []const u8,
+        value: Expression
+    ) AssignmentStatement {
+        return .{
+            .idententifier = identifier,
+            .value = value,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *AssignmentStatement) void {
+        self.allocator.free(self.identifier);
+        self.* = undefined;
+    }
+
+    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+        const self: *AssignmentStatement = @ptrCast(@alignCast(this_ptr));
+
+        const evaluated = try self.value.evaluate(symbol_table);
+        try symbol_table.putValue(self.identifier, evaluated);
+    }
+
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *AssignmentStatement = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
+    pub fn stmt(self: *AssignmentStatement) Statement {
+        return .{
+            .ptr = self,
+            .executeFn = &execute,
+            .deinitFn = &deinitFn
+        };
+    }
+};
 
 // for now, skipping function defs

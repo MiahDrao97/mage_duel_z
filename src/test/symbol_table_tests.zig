@@ -15,8 +15,8 @@ test {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
         defer symbol_table.deinit();
 
-        var symbol_value: ExpressionResult = .{ .integer = 3 };
-        try symbol_table.putSymbol("$", .{ .value = &symbol_value });
+        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        try symbol_table.putValue("$", symbol_value);
         if (symbol_table.getSymbol("$")) |symbol| {
             switch (symbol) {
                 Symbol.value => |x| {
@@ -37,8 +37,8 @@ test {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
         defer symbol_table.deinit();
 
-        var symbol_value: ExpressionResult = .{ .integer = 3 };
-        try symbol_table.putSymbol("$", .{ .value = &symbol_value });
+        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        try symbol_table.putValue("$", symbol_value);
         
         try symbol_table.newScope();
 
@@ -66,8 +66,8 @@ test {
         try symbol_table.newScope();
 
         // define symbol on inner scope
-        var symbol_value: ExpressionResult = .{ .integer = 3 };
-        try symbol_table.putSymbol("$", .{ .value = &symbol_value });
+        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        try symbol_table.putValue("$", symbol_value);
         
         symbol_table.endScope();
 

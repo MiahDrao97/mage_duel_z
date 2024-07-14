@@ -333,15 +333,57 @@ pub const Scope = struct {
         return error.NoOuterScope;
     }
 
+    pub fn putValue(self: *Scope, name: []const u8, value: Result) Allocator.Error!void {
+        // copy name
+        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
+        _ = &name_cpy;
+        errdefer self.allocator.free(name_cpy);
+        @memcpy(name_cpy, name);
+
+        // create value ptr
+        const value_ptr: *Result = try self.allocator.create(Result);
+        errdefer self.allocator.destroy(value_ptr);
+        value_ptr.* = value;
+
+        try self.symbols.put(name_cpy, Symbol { .value = value_ptr });
+    }
+
+    pub fn putFunc(self: *Scope, name: []const u8, func: FunctionDef) Allocator.Error!void {
+        // copy name
+        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
+        _ = &name_cpy;
+        errdefer self.allocator.free(name_cpy);
+        @memcpy(name_cpy, name);
+
+        try self.symbols.put(name_cpy, Symbol { .function = func });
+    }
+
+    pub fn putObj(self: *Scope, name: []const u8, obj: *Scope) Allocator.Error!void {
+        // copy name
+        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
+        _ = &name_cpy;
+        errdefer self.allocator.free(name_cpy);
+        @memcpy(name_cpy, name);
+
+        // create value ptr
+        try self.symbols.put(name_cpy, Symbol { .complex_object = obj });
+    }
+
     pub fn getSymbol(self: Scope, name: []const u8) ?Symbol {
         return self.symbols.get(name);
     }
 
-    pub fn putSymbol(self: *Scope, name: []const u8, symbol: Symbol) Allocator.Error!void {
-        try self.symbols.put(name, symbol);
-    }
-
     pub fn deinit(self: *Scope) void {
+        var iter = self.symbols.iterator();
+        while (iter.next()) |kvp| {
+            self.allocator.free(kvp.key_ptr.*);
+            switch (kvp.value_ptr.*) {
+                Symbol.value => |v| self.allocator.destroy(v),
+                Symbol.complex_object => |o| o.deinit(),
+                // function def's are comptime pointers, so no need to destroy anything here
+                else => { }
+            }
+        }
         self.symbols.deinit();
         self.allocator.destroy(self);
     }
@@ -369,14 +411,25 @@ pub const SymbolTable = struct {
         return null;
     }
 
-    pub fn putSymbol(self: SymbolTable, name: []const u8, value: Symbol) Allocator.Error!void {
-        switch (value) {
-            Symbol.complex_object => |s| {
-                s.outer = self.current_scope;
-            },
-            else => { }
-        }
-        try self.current_scope.putSymbol(name, value);
+    pub fn putValue(self: SymbolTable, name: []const u8, value: Result) Allocator.Error!void {
+        try self.current_scope.putValue(name, value);
+    }
+
+    pub fn putFunc(self: SymbolTable, name: []const u8, func: FunctionDef) Allocator.Error!void {
+        try self.current_scope.putFunc(name, func);
+    }
+
+    /// Use this to create a complex object to define functions and properties on.
+    /// It will properly be linked to the current scope.
+    /// This differs from `newScope()` because the current scope of doesn't change from this call.
+    pub fn newObject(self: SymbolTable) Allocator.Error!*Scope {
+        return try self.current_scope.pushNew();
+    }
+
+    pub fn putObj(self: SymbolTable, name: []const u8, obj: *Scope) Allocator.Error!void {
+        // just in case this wasn't already set
+        obj.*.outer = self.current_scope;
+        try self.current_scope.putObj(name, obj);
     }
 
     pub fn newScope(self: *SymbolTable) Allocator.Error!void {
