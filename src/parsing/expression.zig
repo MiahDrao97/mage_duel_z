@@ -472,6 +472,7 @@ const InnerError = error {
     UnexpectedType,
     ElementTypesVary,
     MustBeGreaterThanZero,
+    MustBePositiveInteger,
     InvalidAccessorChain,
     PrematureAccessorTerminus,
     FunctionInvocationFailed,

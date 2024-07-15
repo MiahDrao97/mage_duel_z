@@ -16,3 +16,9 @@ pub fn deinit(self: *Statement) void {
         call_deinit(self.ptr);
     }
 }
+
+pub fn deinitAll(statements: []Statement) void {
+    for (statements) |stmt| {
+        stmt.deinit();
+    }
+}

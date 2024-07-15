@@ -20,6 +20,7 @@ const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const IntegerLiteral = imports.IntegerLiteral;
 const TargetExpression = imports.TargetExpression;
+const WhenExpression = imports.WhenExpression;
 const Allocator = std.mem.Allocator;
 
 pub const FunctionCall = struct {
@@ -313,15 +314,22 @@ pub const ActionDefinitionStatement = struct {
     };
 
     action_cost: ActionCostExpr,
+    condition: ?WhenExpression,
     statements: []Statement,
     allocator: Allocator,
 
     /// Init's a new instance of `ActionDefinitionStatement`.
     /// `statements` is presumably allocated by `allocator`.
     /// That memory is owned by this structure.
-    pub fn init(allocator: Allocator, statements: []Statement, action_cost: ActionCostExpr) ActionDefinitionStatement {
+    pub fn init(
+        allocator: Allocator,
+        statements: []Statement,
+        action_cost: ActionCostExpr,
+        condition: ?WhenExpression
+    ) ActionDefinitionStatement {
         return .{
             .action_cost = action_cost,
+            .condition = condition,
             .statements = statements,
             .allocator = allocator
         };
@@ -337,7 +345,6 @@ pub const ActionDefinitionStatement = struct {
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
-
         // operating under the guise that the action cost has been paid
         for (self.statements) |inner_stmt| {
             try inner_stmt.execute(symbol_table);
@@ -349,9 +356,24 @@ pub const ActionDefinitionStatement = struct {
         self.deinit();
     }
 
+    pub fn evaluateCondition(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
+        if (self.condition) |condition| {
+            return try condition.expr().evaluate(symbol_table);
+        }
+        return .{ .boolean = true };
+    }
+
     pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
         switch (self.action_cost) {
-            inline else => |x| return try x.evaluate(symbol_table)
+            inline else => |x| {
+                const action_cost_eval: Result = try x.evaluate(symbol_table);
+                const cost: i32 = try action_cost_eval.expectType(i32);
+
+                if (cost < 0) {
+                    return Error.MustBePositiveInteger;
+                }
+                return cost;
+            }
         }
     }
 

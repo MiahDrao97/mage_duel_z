@@ -607,3 +607,23 @@ pub const AccessorExpression = struct {
         };
     }
 };
+
+pub const WhenExpression = struct {
+    condition: Expression,
+
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+        const self: *WhenExpression = @ptrCast(@alignCast(this_ptr));
+
+        const condition_eval: Result = try self.condition.evaluate(symbol_table);
+        const condition: bool = try condition_eval.expectType(bool);
+
+        return .{ .boolean = condition };
+    }
+
+    pub fn expr(self: *WhenExpression) Expression {
+        return .{
+            .ptr = self,
+            .evaluateFn = &evaluate
+        };
+    }
+};

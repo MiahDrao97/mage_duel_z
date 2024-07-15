@@ -1,10 +1,7 @@
 const std = @import("std");
 const tokens = @import("tokens.zig");
-const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
-const TokenIterator = tokens.TokenIterator;
 
-pub const Tokenizer = @import("tokenizer.zig");
+pub const Tokenizer = @import("Tokenizer.zig");
 pub const TokenizerError = Tokenizer.TokenizerError;
 pub const expression = @import("expression.zig");
 pub const Expression = expression.Expression;
@@ -26,105 +23,7 @@ pub const concrete_statements = @import("concrete_statements.zig");
 pub const ActionDefinitionStatement = concrete_statements.ActionDefinitionStatement;
 pub const Label = expression.Label;
 
-const LabelLiteral = concrete_expressions.LabelLiteral;
-const IntegerLiteral = concrete_expressions.IntegerLiteral;
-const TargetExpression = concrete_expressions.TargetExpression;
-
 pub const CardDef = struct {
     labels: []Label,
     actions: []ActionDefinitionStatement,
 };
-
-pub fn parseTokens(allocator: Allocator, to_parse: []Token) !CardDef {
-    var actions = try ArrayList(ActionDefinitionStatement).initCapacity(allocator, to_parse.len);
-    errdefer actions.deinit();
-
-    var labels = ArrayList(Label).init(allocator);
-    errdefer labels.deinit();
-
-    const iter: TokenIterator = try TokenIterator.from(allocator, to_parse);
-
-    // topmost level
-    while (iter.peek()) |next| {
-        if (next.stringEquals("#")) {
-            // parse label
-            const label_expr: LabelLiteral = try LabelLiteral.from(iter);
-            try labels.append(label_expr.label);
-        } else if (next.stringEquals("[")) {
-            const statement: ActionDefinitionStatement = try parseActionDefinitionStatement(allocator, iter);
-            try actions.append(statement);
-        } else {
-            std.log.err("Unable to parse label or action definition statement with token: '{s}'",
-                .{ next.toString() orelse @tagName(next) });
-            return error.UnexpectedToken;
-        }
-    }
-}
-
-fn parseActionDefinitionStatement(allocator: Allocator, iter: TokenIterator) !ActionDefinitionStatement {
-    var statements = ArrayList(Statement).init(allocator);
-    errdefer statements.deinit();
-
-    _ = try iter.require("[");
-    const actionCost: ActionDefinitionStatement.ActionCostExpr = try parseActionCostExpr(iter);
-    
-    _ = try iter.require("]");
-    _ = try iter.require("{");
-
-    while (iter.peek()) |next| {
-        if (next.stringEquals("}")) {
-            break;
-        }
-        try statements.append(try parseStatement(iter));
-    }
-
-    _ = try iter.require("}");
-
-    const statements_slice: []Statement = try statements.toOwnedSlice();
-    return ActionDefinitionStatement.init(allocator, statements_slice, actionCost);
-}
-
-fn parseActionCostExpr(iter: TokenIterator) !ActionDefinitionStatement.ActionCostExpr {
-    if (IntegerLiteral.from(iter)) |int| {
-        // this is the most common case
-        return .{ .flat = int };
-    } else |_| {
-        return .{ .dynamic = try parseTargetExpression(iter) };
-    }
-}
-
-fn parseStatement(iter: TokenIterator) !Expression {
-    while (iter.peek()) |next| {
-        if (next.stringEquals("if")) {
-
-        } else if (next.stringEquals("for")) {
-
-        } else {
-            // damage statement, assignment statement
-        }
-    }
-    return error.NotImplemented;
-}
-
-fn parseExpression(iter: TokenIterator) !Expression {
-    _ = &iter;
-    return error.NotImplemented;
-}
-
-fn parseTargetExpression(iter: TokenIterator) !TargetExpression {
-    // target(1 from [ 1 | 2 ])
-
-    _ = try iter.require("target");
-    _ = try iter.require("(");
-    const amount: Expression = try parseExpression(iter);
-
-    _ = try iter.require("from");
-    const pool: Expression = try parseExpression(iter);
-
-    _ = try iter.require(")");
-
-    return TargetExpression {
-        .amount = amount,
-        .pool = pool
-    };
-}
