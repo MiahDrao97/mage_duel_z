@@ -24,6 +24,10 @@ const ForLoop = imports.ForLoop;
 const CardDef = imports.CardDef;
 const ActionDefinitionStatement = imports.ActionDefinitionStatement;
 const Label = imports.Label;
+const Identifier = imports.Identifier;
+const FunctionCall = imports.FunctionCall;
+const DiceLiteral = imports.DiceLiteral;
+const DamageStatement = imports.DamageStatement;
 
 pub const Parser = @This();
 
@@ -114,9 +118,10 @@ fn parseStatement(self: Parser, iter: TokenIterator) !Statement {
             const if_statement: IfStatement = try self.parseIfStatement(iter);
             return if_statement.stmt();
         } else if (next.stringEquals("for")) {
-
+            const for_loop: ForLoop = try self.parseForLoop(iter);
+            return for_loop.stmt();
         } else {
-            // damage statement, assignment statement
+            // damage statement, assignment statement, or function call
         }
     }
     return error.NotImplemented;
@@ -179,6 +184,108 @@ fn parseIfStatement(self: Parser, iter: TokenIterator) !IfStatement {
     const else_statements_slice: []Statement = try else_statements.toOwnedSlice();
 
     return IfStatement.init(self.allocator, condition, true_statements_slice, else_statements_slice);
+}
+
+fn parseForLoop(self: Parser, iter: TokenIterator) !ForLoop {
+    _ = try iter.require("for");
+    _ = try iter.require("(");
+
+    const identifier: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+    _ = try iter.require("in");
+
+    const range: Expression = try parseExpression(iter);
+    _ = try iter.require(")");
+    _ = try iter.require("{");
+
+    var statements = ArrayList(Statement).init(self.allocator);
+    errdefer {
+        Statement.deinitAll(statements.items);
+        statements.deinit();
+    }
+
+    var block_terminated: bool = false;
+    while (iter.peek()) |next| {
+        if (next.stringEquals("}")) {
+            _ = try iter.require("}");
+            block_terminated = true;
+            break;
+        }
+        try statements.append(try self.parseStatement(iter));
+    }
+    if (!block_terminated) {
+        return error.UnterminatedStatementBlock;
+    }
+
+    const statements_slice: []Statement = try statements.toOwnedSlice();
+    return ForLoop.init(
+        self.allocator,
+        identifier.toString().?,
+        range,
+        statements_slice);
+}
+
+fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
+    // assignment statment, damage statement, and function can all start with an identifier
+    if (Identifier.from(iter)) |identifier| {
+        // it all comes down to the next token...
+        const token: Token = try iter.requireOneOf(&[_][]const u8 { "(", "=>", "=" });
+
+        if (token.stringEquals("(")) {
+            // parse function call
+            var matchedParen: bool = false;
+            var expressions = ArrayList(Expression).init(self.allocator);
+            errdefer expressions.deinit();
+
+            while (iter.peek()) |next| {
+                if (next.stringEquals(")")) {
+                    _ = try iter.require(")");
+                    matchedParen = true;
+                    break;
+                }
+                const expr: Expression = try parseExpression(iter);
+                try expressions.append(expr);
+            }
+            if (!matchedParen) {
+                return error.UnmatchedParen;
+            }
+            const args: []Expression = try expressions.toOwnedSlice();
+            const fnCall: FunctionCall = FunctionCall.init(self.allocator, args, identifier.name);
+            return fnCall.stmt();
+        } else if (token.stringEquals("=>")) {
+            // damage statement
+            _ = try iter.require("=>");
+            const target: Expression = try parseExpression();
+            const dmg: DamageStatement = .{
+                .damage_transaction_expr = identifier.expr(),
+                .target_expr = target
+            };
+            return dmg.stmt();
+        } else if (token.stringEquals("=")) {
+
+        }
+        unreachable;
+    } else |_| {
+        // roll back 1 token (it wasn't an identifier)
+        iter.internal_iter.scroll(-1);
+    }
+    if (IntegerLiteral.from(iter)) |int| {
+        // has to be a damage statement
+        _ = &int;
+    } else |_| {
+        // roll back 1 token (it wasn't an integer literal)
+        iter.internal_iter.scroll(-1);
+    }
+    if (DiceLiteral.from(iter)) |dice| {
+        // has to be a damage statement
+        _ = &dice;
+    } else |_| {
+        // roll back 1 token (it wasn't a dice literal)
+        iter.internal_iter.scroll(-1);
+    }
+
+    const next_tok: Token = iter.peek() orelse Token.eof;
+    std.log.err("Cannot parse statement beginning with token '{s}'", .{next_tok.toString() orelse "<EOF>"});
+    return error.UnexpectedToken;
 }
 
 fn parseExpression(iter: TokenIterator) !Expression {

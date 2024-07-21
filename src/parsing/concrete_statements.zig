@@ -17,6 +17,7 @@ const Error = imports.Error;
 const FunctionDef = imports.FunctionDef;
 const DiceResult = imports.DiceResult;
 const DamageType = imports.types.DamageType;
+const DamageTransaction = imports.types.DamageTransaction;
 const Dice = imports.types.Dice;
 const IntegerLiteral = imports.IntegerLiteral;
 const TargetExpression = imports.TargetExpression;
@@ -103,18 +104,14 @@ pub const FunctionCall = struct {
 };
 
 pub const DamageStatement = struct {
-    amount_expr: Expression,
-    damage_type_expr: Expression,
+    damage_transaction_expr: Expression,
     target_expr: Expression,
 
     fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
         const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
 
-        const amount_eval: Result = try self.amount_expr.evaluate(symbol_table);
-        _ = try amount_eval.expectType(DiceResult);
-
-        const damage_type_eval: Result = try self.damage_type_expr.evaluate(symbol_table);
-        _ = try damage_type_eval.expectType(DamageType);
+        const damage_transaction_eval: Result = try self.damage_transaction_expr.evaluate(symbol_table);
+        _ = try damage_transaction_eval.expectType(DamageTransaction);
 
         const target_eval: Result = try self.target_expr.evaluate(symbol_table);
         const target: Symbol = try target_eval.expectType(Symbol);
@@ -125,7 +122,7 @@ pub const DamageStatement = struct {
                     switch (take_damage_symb) {
                         Symbol.function => |f| {
                             // should be a void function
-                            _ = try f(&[_] Result { amount_eval, damage_type_eval });
+                            _ = try f(&[_] Result { damage_transaction_eval });
                         },
                         else => return error.FunctionNotFound
                     }
