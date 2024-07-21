@@ -17,6 +17,8 @@ const Statement = imports.Statement;
 const TokenIterator = imports.TokenIterator;
 const LabelLiteral = imports.LabelLiteral;
 const IntegerLiteral = imports.IntegerLiteral;
+const DamageTypeLiteral = imports.DamageTypeLiteral;
+const DamageExpression = imports.DamageExpression;
 const TargetExpression = imports.TargetExpression;
 const WhenExpression = imports.WhenExpression;
 const IfStatement = imports.IfStatement;
@@ -28,6 +30,7 @@ const Identifier = imports.Identifier;
 const FunctionCall = imports.FunctionCall;
 const DiceLiteral = imports.DiceLiteral;
 const DamageStatement = imports.DamageStatement;
+const AssignmentStatement = imports.AssignmentStatement;
 
 pub const Parser = @This();
 
@@ -254,14 +257,18 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         } else if (token.stringEquals("=>")) {
             // damage statement
             _ = try iter.require("=>");
-            const target: Expression = try parseExpression();
+            const target: Expression = try parseExpression(iter);
+            // no allocator needed for this one
             const dmg: DamageStatement = .{
                 .damage_transaction_expr = identifier.expr(),
                 .target_expr = target
             };
             return dmg.stmt();
         } else if (token.stringEquals("=")) {
-
+            _ = try iter.require("=");
+            const rhs: Expression = try parseExpression(iter);
+            const assignment: AssignmentStatement = AssignmentStatement.init(self.allocator, identifier.name, rhs);
+            return assignment.stmt();
         }
         unreachable;
     } else |_| {
@@ -270,21 +277,45 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     }
     if (IntegerLiteral.from(iter)) |int| {
         // has to be a damage statement
-        _ = &int;
+        const damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
+        _ = try iter.require("=>");
+        const target: Expression = try parseExpression(iter);
+        const damage_expr: DamageExpression = .{
+            .amount_expr = int.expr(),
+            .damage_type_expr = damage_type.expr()
+        };
+
+        const damage_stmt: DamageStatement = .{
+            .damage_transaction_expr = damage_expr.expr(),
+            .target_expr = target
+        };
+        return damage_stmt.stmt();
     } else |_| {
         // roll back 1 token (it wasn't an integer literal)
         iter.internal_iter.scroll(-1);
     }
     if (DiceLiteral.from(iter)) |dice| {
         // has to be a damage statement
-        _ = &dice;
+        const damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
+        _ = try iter.require("=>");
+        const target: Expression = try parseExpression(iter);
+        const damage_expr: DamageExpression = .{
+            .amount_expr = dice.expr(),
+            .damage_type_expr = damage_type.expr()
+        };
+
+        const damage_stmt: DamageStatement = .{
+            .damage_transaction_expr = damage_expr.expr(),
+            .target_expr = target
+        };
+        return damage_stmt.stmt();
     } else |_| {
         // roll back 1 token (it wasn't a dice literal)
         iter.internal_iter.scroll(-1);
     }
 
     const next_tok: Token = iter.peek() orelse Token.eof;
-    std.log.err("Cannot parse statement beginning with token '{s}'", .{next_tok.toString() orelse "<EOF>"});
+    std.log.err("Cannot parse statement beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
     return error.UnexpectedToken;
 }
 

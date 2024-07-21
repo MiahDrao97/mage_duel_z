@@ -13,6 +13,7 @@ const Expression = imports.Expression;
 const Result = imports.Result;
 const Error = imports.Error;
 const ListResult = imports.ListResult;
+const DiceResult = imports.DiceResult;
 const Label = imports.Label;
 const Token = imports.Token;
 const TokenIterator = imports.TokenIterator;
@@ -148,6 +149,46 @@ pub const DiceLiteral = struct {
     }
 };
 
+pub const DamageExpression = struct {
+    amount_expr: Expression,
+    damage_type_expr: Expression,
+
+    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+        const self: *DamageExpression = @ptrCast(@alignCast(this_ptr));
+
+        const damage_type_eval: Result = try self.damage_type_expr.evaluate(symbol_table);
+        const damage_type: DamageType = try damage_type_eval.expectType(DamageType);
+
+        const amount_eval: Result = try self.amount_expr.evaluate(symbol_table);
+        if (amount_eval.as(i32)) |amount| {
+            return .{
+                .damage_transaction = .{
+                    // can never deal negative damage
+                    .modifier = if (amount < 0) 0 else amount,
+                    .damage_type = damage_type
+                }
+            };
+        } else if (amount_eval.as(DiceResult)) |dice| {
+            return .{
+                .damage_transaction = .{
+                    .dice = dice.dice,
+                    .repetitions = dice.count,
+                    .modifier = dice.modifier,
+                    .damage_type = damage_type
+                }
+            };
+        }
+        return Error.InvalidInnerExpression;
+    }
+
+    pub fn expr(self: *DamageExpression) Expression {
+        return .{
+            .ptr = self,
+            .evaluateFn = &evaluate
+        };
+    }
+};
+
 /// No `from` function is defined because this literal holds a slice of expressions,
 /// and we can't parse other expressions in this scope.
 pub const ListLiteral = struct {
@@ -213,6 +254,7 @@ pub const Identifier = struct {
 
     pub fn from(iter: TokenIterator) ParseError!Identifier {
         const identifier_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+        // TODO: Do we need to mem-copy this string? If we erase all our tokens before evaluating, then we definitely will.
         return .{ .name = identifier_token.toString().? };
     }
 

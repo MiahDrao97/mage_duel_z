@@ -35,7 +35,9 @@ pub const DamageType  = enum {
 
 pub const DamageTransaction = struct {
     damage_type: DamageType,
-    amount: u16,
+    modifier: i32 = 0,
+    dice: ?Dice = null,
+    repetitions: u16 = 1
 };
 
 pub const Dice = struct {
