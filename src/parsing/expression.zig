@@ -485,8 +485,21 @@ pub const Error = InnerError || Allocator.Error;
 pub const Expression = struct {
     ptr: *anyopaque,
     evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
+    deinitFn: ?*const fn (*anyopaque) void = null,
 
     pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
         return self.evaluateFn(self.ptr, symbol_table);
+    }
+
+    pub fn deinit(self: Expression) void {
+        if (self.deinitFn) |callDeinit| {
+            callDeinit(self.ptr);
+        }
+    }
+    
+    pub fn deinitAll(expressions: []Expression) void {
+        for (expressions) |expr| {
+            expr.deinit();
+        }
     }
 };

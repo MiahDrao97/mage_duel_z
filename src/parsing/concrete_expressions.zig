@@ -220,6 +220,7 @@ pub const LabelLiteral = struct {
     pub fn from(iter: TokenIterator) ParseError!LabelLiteral {
         _ = try iter.require("#");
         const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+        var label: Label = undefined;
 
         if (iter.peek()) |next_tok| {
             // #accuracy = 2
@@ -227,13 +228,14 @@ pub const LabelLiteral = struct {
             if (next_tok.symbolEquals("=")) {
                 // consume because we already have the next token
                 _ = iter.next();
-                // TODO: get da value
                 next_tok = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier), @tagName(Token.numeric) });
-                return .{ .label = try Label.from(label_token.toString().?, next_tok.toString()) };
+                label = try Label.from(label_token.toString().?, next_tok.toString());
+                return .{ .label = label };
             }
         }
 
-        return .{ .label = try Label.from(label_token.toString().?, null) };
+        label = try Label.from(label_token.toString().?, null);
+        return .{ .label = label };
     }
 
     fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
@@ -251,11 +253,20 @@ pub const LabelLiteral = struct {
 
 pub const Identifier = struct {
     name: []const u8,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!Identifier {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!Identifier {
         const identifier_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
-        // TODO: Do we need to mem-copy this string? If we erase all our tokens before evaluating, then we definitely will.
-        return .{ .name = identifier_token.toString().? };
+        const str: []const u8 = identifier_token.toString().?;
+
+        var name_cpy: []u8 = try allocator.alloc(u8, str.len);
+        _ = &name_cpy;
+        @memcpy(name_cpy, str);
+
+        return .{
+            .name = name_cpy,
+            .allocator = allocator
+        };
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
@@ -267,10 +278,21 @@ pub const Identifier = struct {
         return Error.UndefinedIdentifier;
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        var self: *Identifier = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
+    pub fn deinit(self: *Identifier) void {
+        self.allocator.free(self.name);
+        self.* = undefined;
+    }
+
     pub fn expr(self: *Identifier) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
     }
 };
@@ -640,6 +662,20 @@ pub const AccessorExpression = struct {
                 }
             }
         }
+    }
+
+    fn deinitFn(this_ptr: *anyopaque) void {
+        var self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
+    pub fn deinit(self: *AccessorExpression) void {
+        for (self.accessor_chain) |link| {
+            switch (link) {
+                inline else => |x| x.deinit()
+            }
+        }
+        self.* = undefined;
     }
 
     pub fn expr(self: *AccessorExpression) Expression {
