@@ -70,6 +70,10 @@ pub const StringToken = struct {
         return ptr;
     }
 
+    pub fn clone(self: StringToken) ParseTokenError!*StringToken {
+        return from(self.allocator, self.value);
+    }
+
     pub fn deinit(self: *StringToken) void {
         self.allocator.free(self.value);
         self.allocator.destroy(self);
@@ -98,6 +102,10 @@ pub const NumericToken = struct {
         };
 
         return ptr;
+    }
+
+    pub fn clone(self: NumericToken) ParseTokenError!*NumericToken {
+        return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *NumericToken) void {
@@ -137,6 +145,10 @@ pub const BooleanToken = struct {
         return ptr;
     }
 
+    pub fn clone(self: BooleanToken) ParseTokenError!*BooleanToken {
+        return from(self.allocator, self.string_value);
+    }
+
     pub fn deinit(self: *BooleanToken) void {
         self.allocator.free(self.string_value);
         self.allocator.destroy(self);
@@ -165,6 +177,10 @@ pub const DamageTypeToken = struct {
         };
 
         return ptr;
+    }
+
+    pub fn clone(self: DamageTypeToken) ParseTokenError!*DamageTypeToken {
+        return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *DamageTypeToken) void {
@@ -213,6 +229,10 @@ pub const DiceToken = struct {
         return Dice.new(self.sides) catch unreachable;
     }
 
+    pub fn clone(self: DiceToken) ParseTokenError!*DiceToken {
+        return from(self.allocator, self.string_value);
+    }
+
     pub fn deinit(self: *DiceToken) void {
         self.allocator.free(self.string_value);
         self.allocator.destroy(self);
@@ -245,6 +265,19 @@ pub const Token = union(enum) {
     pub fn deinitAll(tokens: []Token) void {
         for (tokens) |token| {
             token.deinit();
+        }
+    }
+
+    /// Allocates a clone of `self`, except in the cases of `comment` or `eof`, which just return `self`.
+    pub fn clone(self: Token) ParseTokenError!Token {
+        switch (self) {
+            Token.identifier => |i| return .{ .identifier = try i.clone() },
+            Token.numeric => |n| return .{ .numeric = try n.clone() },
+            Token.symbol => |s| return .{ .symbol = try s.clone() },
+            Token.boolean => |b| return .{ .boolean = try b.clone() },
+            Token.dice => |d| return .{ .dice = try d.clone() },
+            Token.damage_type => |d| return .{ .damage_type = d.clone() },
+            else => return self
         }
     }
 
@@ -374,6 +407,19 @@ pub const TokenIterator = struct {
                 inline Token.comment, Token.eof => null,
                 else => t
             };
+        }
+        return null;
+    }
+
+    /// If there's a next token that's a symbol that matches any of the following `vals`,
+    /// then the iterator returns that token and moves forward.
+    pub fn nextMatchesSymbol(self: TokenIterator, vals: []const []const u8) ?Token {
+        if (self.peek()) |next_tok| {
+            for (vals) |val| {
+                if (next_tok.symbolEquals(val)) {
+                    return self.next().?;
+                }
+            }
         }
         return null;
     }

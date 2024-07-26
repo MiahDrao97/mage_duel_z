@@ -6,6 +6,7 @@ const imports = struct {
     usingnamespace @import("expression.zig");
     usingnamespace @import("concrete_expressions.zig");
     usingnamespace @import("Statement.zig");
+    usingnamespace @import("tokens.zig");
 };
 
 const Statement = imports.Statement;
@@ -23,26 +24,25 @@ const IntegerLiteral = imports.IntegerLiteral;
 const TargetExpression = imports.TargetExpression;
 const WhenExpression = imports.WhenExpression;
 const Allocator = std.mem.Allocator;
+const Token = imports.Token;
 
 pub const FunctionCall = struct {
-    name: []const u8,
+    name: Token,
     args: []Expression,
     allocator: Allocator,
 
-    pub fn init(
-        allocator: Allocator,
-        name: []const u8,
-        args: []Expression
-    ) FunctionCall {
+    pub fn new(allocator: Allocator, name: Token, args: []Expression) !FunctionCall {
+        try name.expectMatches(@tagName(Token.identifier));
         return .{
-            .name = name,
+            .name = try name.clone(),
             .args = args,
             .allocator = allocator
         };
     }
 
     pub fn deinit(self: *FunctionCall) void {
-        self.allocator.free(self.name);
+        self.name.deinit();
+        Expression.deinitAll(self.args);
         self.allocator.free(self.args);
         self.* = undefined;
     }
@@ -134,10 +134,22 @@ pub const DamageStatement = struct {
         }
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
+    pub fn deinit(self: *DamageStatement) void {
+        self.damage_transaction_expr.deinit();
+        self.target_expr.deinit();
+        self.* = undefined;
+    }
+
     pub fn stmt(self: *DamageStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute
+            .executeFn = &execute,
+            .deinitFn = &deinitFn
         };
     }
 };
@@ -148,9 +160,6 @@ pub const IfStatement = struct {
     else_statements: []Statement,
     allocator: Allocator,
 
-    /// Inits a new `IfStatement` instance.
-    /// `true_statements` and `else_statements` were presumably allocated by `allocator`.
-    /// This structure owns that memory.
     pub fn init(
         allocator: Allocator,
         condition: Expression,
@@ -166,14 +175,12 @@ pub const IfStatement = struct {
     }
 
     pub fn deinit(self: *IfStatement) void {
-        for (self.true_statements) |inner_stmt| {
-            inner_stmt.deinit();
-        }
-        for (self.else_statements) |inner_stmt| {
-            inner_stmt.deinit();
-        }
+        self.condition.deinit();
+        Statement.deinitAll(self.true_statements);
+        Statement.deinitAll(self.else_statements);
         self.allocator.free(self.true_statements);
         self.allocator.free(self.else_statements);
+
         self.* = undefined;
     }
 
@@ -215,22 +222,20 @@ pub const IfStatement = struct {
 };
 
 pub const ForLoop = struct {
-    identifier: []const u8,
+    identifier: Token,
     range: Expression,
     statements: []Statement,
     allocator: Allocator,
 
-    /// Inits a new `ForLoop` instance.
-    /// `identifer` and `statements` were presumably allocated by `allocator`.
-    /// This structure owns that memory.
-    pub fn init(
+    pub fn new(
         allocator: Allocator,
-        identifier: []const u8,
+        identifier: Token,
         range: Expression,
         statements: []Statement
-    ) ForLoop {
+    ) !ForLoop {
+        try identifier.expectMatches(@tagName(Token.identifier));
         return .{
-            .idententifier = identifier,
+            .idententifier = try identifier.clone(),
             .range = range,
             .statements = statements,
             .allocator = allocator
@@ -238,11 +243,11 @@ pub const ForLoop = struct {
     }
 
     pub fn deinit(self: *ForLoop) void {
-        for (self.statements) |inner_stmt| {
-            inner_stmt.deinit();
-        }
-        self.allocator.free(self.identifier);
+        self.identifier.deinit();
+        self.range.deinit();
+        Statement.deinitAll(self.statements);
         self.allocator.free(self.statements);
+
         self.* = undefined;
     }
 
@@ -269,7 +274,7 @@ pub const ForLoop = struct {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putValue(self.identifier, item);
+            try symbol_table.putValue(self.identifier.toString().?, item);
             for (self.statements) |inner_stmt| {
                 try inner_stmt.execute(symbol_table);
             }
@@ -384,27 +389,23 @@ pub const ActionDefinitionStatement = struct {
 };
 
 pub const AssignmentStatement = struct {
-    identifier: []const u8,
+    identifier: Token,
     value: Expression,
-    allocator: Allocator,
 
     /// Init's a new instance of `AssignmentStatement`.
     /// `identifier` was presumably allocated by `allocator`.
     /// This structure owns that memory.
-    pub fn init(
-        allocator: Allocator,
-        identifier: []const u8,
-        value: Expression
-    ) AssignmentStatement {
+    pub fn new(identifier: Token, value: Expression) !AssignmentStatement {
+        try identifier.expectMatches(@tagName(Token.identifier));
         return .{
-            .idententifier = identifier,
-            .value = value,
-            .allocator = allocator
+            .idententifier = try identifier.clone(),
+            .value = value
         };
     }
 
     pub fn deinit(self: *AssignmentStatement) void {
-        self.allocator.free(self.identifier);
+        self.identifier.deinit();
+        self.value.deinit();
         self.* = undefined;
     }
 

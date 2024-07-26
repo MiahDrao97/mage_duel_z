@@ -477,7 +477,8 @@ const InnerError = error {
     PrematureAccessorTerminus,
     FunctionInvocationFailed,
     HigherOrderFunctionsNotSupported,
-    InvalidInnerExpression
+    InvalidInnerExpression,
+    UnexpectedToken
 };
 
 pub const Error = InnerError || Allocator.Error;
