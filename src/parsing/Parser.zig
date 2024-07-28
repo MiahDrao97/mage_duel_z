@@ -17,7 +17,10 @@ const Statement = imports.Statement;
 const TokenIterator = imports.TokenIterator;
 const LabelLiteral = imports.LabelLiteral;
 const IntegerLiteral = imports.IntegerLiteral;
+const BooleanLiteral = imports.BooleanLiteral;
 const DamageTypeLiteral = imports.DamageTypeLiteral;
+const DiceLiteral = imports.DiceLiteral;
+const ListLiteral = imports.ListLiteral;
 const DamageExpression = imports.DamageExpression;
 const TargetExpression = imports.TargetExpression;
 const WhenExpression = imports.WhenExpression;
@@ -28,7 +31,6 @@ const ActionDefinitionStatement = imports.ActionDefinitionStatement;
 const Label = imports.Label;
 const Identifier = imports.Identifier;
 const FunctionCall = imports.FunctionCall;
-const DiceLiteral = imports.DiceLiteral;
 const DamageStatement = imports.DamageStatement;
 const AssignmentStatement = imports.AssignmentStatement;
 const EqualityExpression = imports.EqualityExpression;
@@ -72,6 +74,11 @@ pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
             return error.UnexpectedToken;
         }
     }
+
+    const labels_slice: []Label = try labels.toOwnedSlice();
+    const actions_slice: []ActionDefinitionStatement = try actions.toOwnedSlice();
+
+    return CardDef.init(self.allocator, labels_slice, actions_slice);
 }
 
 fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !ActionDefinitionStatement {
@@ -283,9 +290,17 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             return assignment.stmt();
         }
         unreachable;
-    } else |_| {
-        // roll back 1 token (it wasn't an identifier)
-        iter.internal_iter.scroll(-1);
+    } else |err| {
+        switch (err) {
+            error.OutOfMemory => {
+                std.log.err("Out of memory while trying to parse identifier.", .{});
+                return err;
+            },
+            else => {
+                // roll back 1 token (it wasn't an identifier)
+                iter.internal_iter.scroll(-1);
+            }
+        }
     }
     if (IntegerLiteral.from(iter)) |int| {
         // has to be a damage statement
@@ -336,9 +351,6 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
 }
 
 fn parseExpression(iter: TokenIterator) !Expression {
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) {
-        return parseTargetExpression(iter);
-    }
     return parseEqualityExpression(iter);
 }
 
@@ -359,12 +371,85 @@ fn parseBooleanExpression(iter: TokenIterator) !Expression {
         const booleanExpr: BooleanExpression = try BooleanExpression.new(lhs, rhs, sym);
         return booleanExpr.expr();
     }
-    return error.NotImplemented;
+    return lhs;
 }
 
 fn parseComparisonExpression(iter: TokenIterator) !Expression {
-    _ = &iter;
-    return error.NotImplemented;
+    const lhs: Expression = try parseAdditiveExpression(iter);
+    if (iter.nextMatchesSymbol(&[_][]const u8 { ">", ">=", "<=", "<" })) |sym| {
+        const rhs: Expression = try parseAdditiveExpression(iter);
+        const comparisonExpr: ComparisonExpression = try ComparisonExpression.new(lhs, rhs, sym);
+        return comparisonExpr.expr();
+    }
+    return lhs;
+}
+
+fn parseAdditiveExpression(iter: TokenIterator) !Expression {
+    const lhs: Expression = try parseFactorExpression(iter);
+    if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "+!", "-" })) |sym| {
+        const rhs: Expression = try parseFactorExpression(iter);
+        const additiveExpr: AdditiveExpression = try AdditiveExpression.new(lhs, rhs, sym);
+        return additiveExpr.expr();
+    }
+    return lhs;
+}
+
+fn parseFactorExpression(iter: TokenIterator) !Expression {
+    const lhs: Expression = try parseUnaryExpression(iter);
+    if (iter.nextMatchesSymbol(&[_][]const u8 { "*", "/" })) |sym| {
+        const rhs: Expression = try parseUnaryExpression(iter);
+        const factorExpr: FactorExpression = try FactorExpression.new(lhs, rhs, sym);
+        return factorExpr.expr();
+    }
+    return lhs;
+}
+
+fn parseUnaryExpression(iter: TokenIterator) !Expression {
+    if (iter.nextMatchesSymbol(&[_][]const u8 { "-", "~", "^" })) |sym| {
+        const rhs: Expression = try parsePrimaryExpression(iter);
+        const unaryExpr: UnaryExpression = try UnaryExpression.new(rhs, sym);
+        return unaryExpr.expr();
+    }
+    return parsePrimaryExpression(iter);
+}
+
+fn parsePrimaryExpression(iter: TokenIterator) !Expression {
+    if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) {
+        return parseTargetExpression(iter);
+    } else {
+        // parse integer, boolean, damage type, dice, identifier, list literal
+        // leaving damage expression out because it's a composite of integer/dice + damage type (see parsing damage statements)
+        if (IntegerLiteral.from(iter)) |int| {
+            return int.expr();
+        } else |_| { }
+
+        if (BooleanLiteral.from(iter)) |boolean| {
+            return boolean.expr();
+        } else |_| { }
+
+        if (DiceLiteral.from(iter)) |dice| {
+            return dice.expr();
+        } else |_| { }
+
+        if (DamageTypeLiteral.from(iter)) |damageType| {
+            return damageType.expr();
+        } else |_| { }
+
+        if (Identifier.from(iter)) |identifier| {
+            return identifier.expr();
+        } else |err| {
+            switch (err) {
+                error.OutOfMemory => {
+                    std.log.err("Out of memory while trying to parse identifier.", .{});
+                    return err;
+                },
+                else => { }
+            }
+        }
+    }
+    const next_tok: Token = iter.peek() orelse Token.eof;
+    std.log.err("Cannot parse statement beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
+    return error.UnexpectedToken;
 }
 
 fn parseTargetExpression(iter: TokenIterator) !TargetExpression {

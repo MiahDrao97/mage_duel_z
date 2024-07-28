@@ -367,6 +367,7 @@ pub const UnaryExpression = struct {
                 } else |err| {
                     return err;
                 }
+                // TODO: up-to operator "^"
                 return Error.OperandTypeNotSupported;
             },
             else => return Error.OperandTypeNotSupported

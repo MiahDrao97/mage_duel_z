@@ -1,6 +1,8 @@
 const std = @import("std");
 const tokens = @import("tokens.zig");
 
+const Allocator = std.mem.Allocator;
+
 pub const Tokenizer = @import("Tokenizer.zig");
 pub const TokenizerError = Tokenizer.TokenizerError;
 pub const expression = @import("expression.zig");
@@ -26,4 +28,19 @@ pub const Label = expression.Label;
 pub const CardDef = struct {
     labels: []Label,
     actions: []ActionDefinitionStatement,
+    allocator: Allocator,
+
+    pub fn init(allocator: Allocator, labels: []Label, actions: []ActionDefinitionStatement) CardDef {
+        return .{
+            .labels = labels,
+            .actions = actions,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *CardDef) void {
+        self.allocator.free(self.labels);
+        self.allocator.free(self.actions);
+        self.* = undefined;
+    }
 };
