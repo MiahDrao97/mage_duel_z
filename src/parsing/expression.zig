@@ -14,7 +14,7 @@ const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
 
 pub const Result = union(enum) {
-    integer: i32,
+    integer: IntResult,
     boolean: bool,
     damage_type: DamageType,
     damage_transaction: DamageTransaction,
@@ -27,6 +27,13 @@ pub const Result = union(enum) {
 
     pub fn as(self: Result, comptime T: type) ?T {
         switch (self) {
+            Result.integer => |i| {
+                if (T == i32) {
+                    return i.value;
+                } else if (T == IntResult) {
+                    return i;
+                }
+            },
             inline else => |x| {
                 if (@TypeOf(x) == T) {
                     return x;
@@ -49,6 +56,11 @@ pub const DiceResult = struct {
     count: u16,
     dice: Dice,
     modifier: i32 = 0,
+};
+
+pub const IntResult = struct {
+    value: i32,
+    up_to: bool = false,
 };
 
 pub const ListResult = struct {

@@ -14,6 +14,7 @@ const Result = imports.Result;
 const Error = imports.Error;
 const ListResult = imports.ListResult;
 const DiceResult = imports.DiceResult;
+const IntResult = imports.IntResult;
 const Label = imports.Label;
 const Token = imports.Token;
 const TokenIterator = imports.TokenIterator;
@@ -45,7 +46,11 @@ pub const IntegerLiteral = struct {
 
     fn evaluate(this_ptr: *anyopaque, _: SymbolTable) Error!Result {
         const self: *IntegerLiteral = @ptrCast(@alignCast(this_ptr));
-        return .{ .integer = self.val };
+        return .{
+            .integer = .{
+                .value = @bitCast(self.val)
+            }
+        };
     }
 
     pub fn expr(self: *IntegerLiteral) Expression {
@@ -355,19 +360,27 @@ pub const UnaryExpression = struct {
         switch (rh_result) {
             Result.boolean => |x| {
                 if (self.op.expectSymbolEquals("~")) {
-                    return !x;
+                    return .{ .boolean = !x };
                 } else |err| {
                     return err;
                 }
                 return Error.OperandTypeNotSupported;
             },
             Result.integer => |x| {
-                if (self.op.expectSymbolEquals("-")) {
-                    return -x;
-                } else |err| {
-                    return err;
+                if (self.op.symbolEquals("-")) {
+                    return .{
+                        .integer = .{
+                            .value = -x.value
+                        }
+                    };
+                } else if (self.op.symbolEquals("^")) {
+                    return .{
+                        .integer = .{
+                            .value = x.value,
+                            .up_to = true
+                        }
+                    };
                 }
-                // TODO: up-to operator "^"
                 return Error.OperandTypeNotSupported;
             },
             else => return Error.OperandTypeNotSupported
@@ -420,10 +433,18 @@ pub const AdditiveExpression = struct {
                 const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeMismatch; };
                 try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-" });
                 if (self.op.stringEquals("+")) {
-                    return .{ .integer = lh_int + rh_int };
+                    return .{
+                        .integer = .{
+                            .value = lh_int.value + rh_int
+                        }
+                    };
                 }
                 else {
-                    return .{ .integer = lh_int - rh_int };
+                    return .{
+                        .integer = .{
+                            .value = lh_int.value - rh_int
+                        }    
+                    };
                 }
             },
             Result.list => |lh_list| {
@@ -510,9 +531,17 @@ pub const FactorExpression = struct {
         const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
 
         if (self.op.stringEquals("*")) {
-            return .{ .integer = lh_int * rh_int };
+            return .{
+                .integer = .{
+                    .value = lh_int * rh_int
+                }
+            };
         } else {
-            return .{ .integer = lh_int / rh_int };
+            return .{
+                .integer = .{
+                    .value = lh_int / rh_int
+                }
+            };
         }
     }
 
@@ -620,9 +649,9 @@ pub const EqualityExpression = struct {
             Result.integer => |lh_int| {
                 const rh_int: i32 = try rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
                 if (self.op.stringEquals("==")) {
-                    return .{ .boolean = lh_int == rh_int };
+                    return .{ .boolean = lh_int.value == rh_int };
                 } else {
-                    return .{ .boolean = lh_int != rh_int };
+                    return .{ .boolean = lh_int.value != rh_int };
                 }
             },
             Result.boolean => |lh_bool| {
@@ -725,14 +754,13 @@ pub const TargetExpression = struct {
         const eval_amount: Result = try self.amount.evaluate(symbol_table);
         const eval_pool: Result = try self.pool.evaluate(symbol_table);
 
-        const eval_int: i32 = try eval_amount.expectType(i32);
-        if (eval_int < 1) {
+        const eval_int: IntResult = try eval_amount.expectType(IntResult);
+        if (eval_int.value < 1) {
             return Error.MustBeGreaterThanZero;
         }
 
         const eval_list: ListResult = try eval_pool.expectType(ListResult);
-        // TODO: determine if up-to operator was used (^)
-        if (symbol_table.getPlayerChoice(@bitCast(eval_int), eval_list.items, false)) |choice| {
+        if (symbol_table.getPlayerChoice(@bitCast(eval_int.value), eval_list.items, !eval_int.up_to)) |choice| {
             return choice;
         } else |err| {
             switch (err) {

@@ -260,7 +260,7 @@ pub const ForLoop = struct {
                 try self.executeList(list.items, symbol_table);
             },
             Result.integer => |i| {
-                if (i < 0) {
+                if (i.value < 0) {
                     return error.RangeCannotBeNegative;
                 }
                 try self.executeRange(i, symbol_table);
