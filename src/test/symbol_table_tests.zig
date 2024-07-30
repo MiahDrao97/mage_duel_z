@@ -15,14 +15,18 @@ test {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
         defer symbol_table.deinit();
 
-        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        const symbol_value: ExpressionResult = .{
+            .integer = .{
+                .value = 3
+            }
+        };
         try symbol_table.putValue("$", symbol_value);
         if (symbol_table.getSymbol("$")) |symbol| {
             switch (symbol) {
                 Symbol.value => |x| {
                     switch (x.*) {
                         ExpressionResult.integer => |i| {
-                            try testing.expect(i == 3);
+                            try testing.expect(i.value == 3);
                         },
                         else => return error.UnexpectedValue,
                     }
@@ -37,7 +41,11 @@ test {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
         defer symbol_table.deinit();
 
-        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        const symbol_value: ExpressionResult = .{
+            .integer = .{
+                .value = 3
+            }
+        };
         try symbol_table.putValue("$", symbol_value);
         
         try symbol_table.newScope();
@@ -48,7 +56,7 @@ test {
                 Symbol.value => |x| {
                     switch (x.*) {
                         ExpressionResult.integer => |i| {
-                            try testing.expect(i == 3);
+                            try testing.expect(i.value == 3);
                         },
                         else => return error.UnexpectedValue,
                     }
@@ -66,7 +74,11 @@ test {
         try symbol_table.newScope();
 
         // define symbol on inner scope
-        const symbol_value: ExpressionResult = .{ .integer = 3 };
+        const symbol_value: ExpressionResult = .{
+            .integer = .{
+                .value = 3
+            }
+        };
         try symbol_table.putValue("$", symbol_value);
         
         symbol_table.endScope();

@@ -39,6 +39,7 @@ const ComparisonExpression = imports.ComparisonExpression;
 const FactorExpression = imports.FactorExpression;
 const AdditiveExpression = imports.AdditiveExpression;
 const UnaryExpression = imports.UnaryExpression;
+const ParenthesizedExpression = imports.ParensthesizedExpression;
 
 pub const Parser = @This();
 
@@ -416,6 +417,12 @@ fn parseUnaryExpression(iter: TokenIterator) !Expression {
 fn parsePrimaryExpression(iter: TokenIterator) !Expression {
     if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) {
         return parseTargetExpression(iter);
+    } else if (iter.nextMatchesSymbol(&[_][]const u8 { "(" })) {
+        const expr: Expression = try parseExpression(iter);
+        _ = try iter.require(")");
+        
+        const paren_expr: ParenthesizedExpression = .{ .inner = expr };
+        return paren_expr.expr();
     } else {
         // parse integer, boolean, damage type, dice, identifier, list literal
         // leaving damage expression out because it's a composite of integer/dice + damage type (see parsing damage statements)
