@@ -12,6 +12,7 @@ const DamageTransaction = imports.types.DamageTransaction;
 const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
+const ParseTokenError = imports.ParseTokenError;
 
 pub const Result = union(enum) {
     integer: IntResult,
@@ -131,15 +132,15 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
         for (self.items) |item| {
-            hash_set.put(item, void);
+            try hash_set.put(item, {});
         }
         for (other.items) |item| {
-            hash_set.put(item, void);
+            try hash_set.put(item, {});
         }
 
         const combined_items: []Result = hash_set.keys();
@@ -181,14 +182,14 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
         for (self.items) |item| {
-            hash_set.put(item, void);
+            try hash_set.put(item, {});
         }
-        hash_set.put(new, void);
+        try hash_set.put(new, {});
 
         const combined_items: []Result = hash_set.keys();
         // copy the keys (before we nuke the above hash set)
@@ -211,16 +212,16 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items from self
         for (self.items) |item| {
-            hash_set.put(item, void);
+            try hash_set.put(item, {});
         }
         // remove the items from other
         for (other.items) |item| {
-            hash_set.remove(item, void);
+            _ = hash_set.orderedRemove(item);
         }
 
         const combined_items: []Result = hash_set.keys();
@@ -241,22 +242,26 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        const hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        var hash_set = std.AutoHashMap(Result, void).init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items from self
         for (self.items) |item| {
-            hash_set.put(item, void);
+            try hash_set.put(item, {});
         }
         // remove the items from other
-        hash_set.remove(to_remove);
+        _ = hash_set.remove(to_remove);
 
-        const combined_items: []Result = hash_set.keys();
+        var iter = hash_set.keyIterator();
         // copy the keys (before we nuke the above hash set)
-        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
-        _ = &copied_items;
+        var copied_items: []Result = try self.allocator.alloc(Result, iter.len);
         errdefer self.allocator.free(copied_items);
-        @memcpy(copied_items, combined_items);
+
+        var i: usize = 0;
+        while (iter.next()) |next| {
+            copied_items[i] = next.*;
+            i += 1;
+        }
 
         return try ListResult.from(self.allocator, copied_items);
     }
@@ -279,9 +284,9 @@ pub const Label = union(enum) {
 
     pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
         if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {
-            return .{ .one_time_use };
+            return Label.one_time_use;
         } else if (std.mem.eql(u8, @tagName(Label.attack), label)) {
-            return .{ .attack };
+            return Label.attack;
         } else if (std.mem.eql(u8, @tagName(Label.rank), label)) {
             if (value) |val| {
                 // expecting a single character
@@ -460,6 +465,10 @@ pub const SymbolTable = struct {
         _ = &amount;
         _ = &pool;
         _ = &exact;
+        if (!exact) {
+            return error.SomeOtherError;
+        }
+
         return error.NotImplemented;
     }
 
@@ -490,17 +499,18 @@ const InnerError = error {
     FunctionInvocationFailed,
     HigherOrderFunctionsNotSupported,
     InvalidInnerExpression,
-    UnexpectedToken
+    UnexpectedToken,
+    PlayerChoiceFailed
 };
 
-pub const Error = InnerError || Allocator.Error;
+pub const Error = InnerError || ParseTokenError || Allocator.Error;
 
 pub const Expression = struct {
     ptr: *anyopaque,
-    evaluateFn: *const fn (*anyopaque, SymbolTable) Error!Result,
+    evaluateFn: *const fn (*anyopaque, *SymbolTable) Error!Result,
     deinitFn: ?*const fn (*anyopaque) void = null,
 
-    pub fn evaluate(self: Expression, symbol_table: SymbolTable) Error!Result {
+    pub fn evaluate(self: Expression, symbol_table: *SymbolTable) Error!Result {
         return self.evaluateFn(self.ptr, symbol_table);
     }
 

@@ -144,7 +144,7 @@ test "SymbolTable.putFunc()" {
             else => return error.UnexpectedSymbol
         }
 
-        var args = [_]ExpressionResult { val };
+        var args: [1]ExpressionResult = [_]ExpressionResult { val };
         const result: ExpressionResult = try func(&args);
         switch (result) {
             ExpressionResult.integer => |i| {

@@ -276,7 +276,7 @@ pub const Token = union(enum) {
             Token.symbol => |s| return .{ .symbol = try s.clone() },
             Token.boolean => |b| return .{ .boolean = try b.clone() },
             Token.dice => |d| return .{ .dice = try d.clone() },
-            Token.damage_type => |d| return .{ .damage_type = d.clone() },
+            Token.damage_type => |d| return .{ .damage_type = try d.clone() },
             else => return self
         }
     }
@@ -424,7 +424,7 @@ pub const TokenIterator = struct {
         return null;
     }
 
-    pub fn peek(self: *TokenIterator) ?Token {
+    pub fn peek(self: TokenIterator) ?Token {
         const next_tok: ?Token = self.next();
         // as if we hadn't moved forward
         self.internal_iter.scroll(-1);

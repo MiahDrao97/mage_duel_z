@@ -47,11 +47,18 @@ pub const FunctionCall = struct {
         self.* = undefined;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
-        const function_def: FunctionDef = symbol_table.getSymbol(self.name) orelse return error.FunctionDefinitionNotFound;
+        const func_symbol: Symbol = symbol_table.getSymbol(self.name.toString().?)
+            orelse return error.FunctionDefinitionNotFound;
 
-        const args_list: []Result = symbol_table.allocator.alloc(Result, self.args.len);
+        var function_def: FunctionDef = undefined;
+        switch (func_symbol) {
+            Symbol.function => |f| function_def = f,
+            else => return error.UnexpectedSymbol
+        }
+
+        const args_list: []Result = try symbol_table.allocator.alloc(Result, self.args.len);
         defer symbol_table.allocator.free(args_list);
         
         for (self.args, 0..) |arg, i| {
@@ -61,9 +68,10 @@ pub const FunctionCall = struct {
         _ = try function_def(args_list);
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: SymbolTable) Error!Result {
+    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
-        const function_def: FunctionDef = symbol_table.getSymbol(self.name) orelse return error.FunctionDefinitionNotFound;
+        const function_def: FunctionDef = symbol_table.getSymbol(self.name)
+            orelse return error.FunctionDefinitionNotFound;
 
         const args_list: []Result = symbol_table.allocator.alloc(Result, self.args.len);
         defer symbol_table.allocator.free(args_list);
@@ -107,7 +115,7 @@ pub const DamageStatement = struct {
     damage_transaction_expr: Expression,
     target_expr: Expression,
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
 
         const damage_transaction_eval: Result = try self.damage_transaction_expr.evaluate(symbol_table);
@@ -121,8 +129,9 @@ pub const DamageStatement = struct {
                 if (o.getSymbol("takeDamage")) |take_damage_symb| {
                     switch (take_damage_symb) {
                         Symbol.function => |f| {
+                            var args: [1]Result = [_]Result { damage_transaction_eval };
                             // should be a void function
-                            _ = try f(&[_] Result { damage_transaction_eval });
+                            _ = try f(&args);
                         },
                         else => return error.FunctionNotFound
                     }
@@ -184,7 +193,7 @@ pub const IfStatement = struct {
         self.* = undefined;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
 
         const condition_eval: Result = try self.condition.evaluate(symbol_table);
@@ -235,7 +244,7 @@ pub const ForLoop = struct {
     ) !ForLoop {
         try identifier.expectMatches(@tagName(Token.identifier));
         return .{
-            .idententifier = try identifier.clone(),
+            .identifier = try identifier.clone(),
             .range = range,
             .statements = statements,
             .allocator = allocator
@@ -251,7 +260,7 @@ pub const ForLoop = struct {
         self.* = undefined;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
         
         const range_eval: Result = try self.range.evaluate(symbol_table);
@@ -263,13 +272,13 @@ pub const ForLoop = struct {
                 if (i.value < 0) {
                     return error.RangeCannotBeNegative;
                 }
-                try self.executeRange(i, symbol_table);
+                try self.executeRange(i.value, symbol_table);
             },
             else => return error.InvalidRangeExpression
         }
     }
 
-    fn executeList(self: ForLoop, items: []Result, symbol_table: SymbolTable) !void {
+    fn executeList(self: ForLoop, items: []Result, symbol_table: *SymbolTable) !void {
         for (items) |item| {
             try symbol_table.newScope();
             defer symbol_table.endScope();
@@ -281,14 +290,18 @@ pub const ForLoop = struct {
         }
     }
 
-    fn executeRange(self: ForLoop, range: i32, symbol_table: SymbolTable) !void {
+    fn executeRange(self: ForLoop, range: i32, symbol_table: *SymbolTable) !void {
         std.debug.assert(range >= 0);
 
-        for (0..range) |i| {
+        for (0..@intCast(range)) |i| {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putValue(self.identifier, Result { .integer = i });
+            try symbol_table.putValue(self.identifier.toString().?, Result{
+                .integer = .{
+                    .value = @intCast(i)
+                }
+            });
             for (self.statements) |inner_stmt| {
                 try inner_stmt.execute(symbol_table);
             }
@@ -345,7 +358,7 @@ pub const ActionDefinitionStatement = struct {
         self.* = undefined;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
         // operating under the guise that the action cost has been paid
         for (self.statements) |inner_stmt| {
@@ -358,14 +371,14 @@ pub const ActionDefinitionStatement = struct {
         self.deinit();
     }
 
-    pub fn evaluateCondition(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
+    pub fn evaluateCondition(self: ActionDefinitionStatement, symbol_table: *SymbolTable) Error!Result {
         if (self.condition) |condition| {
             return try condition.expr().evaluate(symbol_table);
         }
         return .{ .boolean = true };
     }
 
-    pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: SymbolTable) Error!Result {
+    pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: *SymbolTable) Error!Result {
         switch (self.action_cost) {
             inline else => |x| {
                 const action_cost_eval: Result = try x.evaluate(symbol_table);
@@ -398,7 +411,7 @@ pub const AssignmentStatement = struct {
     pub fn new(identifier: Token, value: Expression) !AssignmentStatement {
         try identifier.expectMatches(@tagName(Token.identifier));
         return .{
-            .idententifier = try identifier.clone(),
+            .identifier = try identifier.clone(),
             .value = value
         };
     }
@@ -409,11 +422,11 @@ pub const AssignmentStatement = struct {
         self.* = undefined;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: SymbolTable) !void {
+    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *AssignmentStatement = @ptrCast(@alignCast(this_ptr));
 
         const evaluated = try self.value.evaluate(symbol_table);
-        try symbol_table.putValue(self.identifier, evaluated);
+        try symbol_table.putValue(self.identifier.toString().?, evaluated);
     }
 
     fn deinitFn(this_ptr: *anyopaque) void {

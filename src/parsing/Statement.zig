@@ -4,10 +4,10 @@ const SymbolTable = expression.SymbolTable;
 pub const Statement = @This();
 
 ptr: *anyopaque,
-executeFn: *const fn (*anyopaque, SymbolTable) anyerror!void,
+executeFn: *const fn (*anyopaque, *SymbolTable) anyerror!void,
 deinitFn: ?*const fn (*anyopaque) void = null,
 
-pub fn execute(self: Statement, symbol_table: SymbolTable) !void {
+pub fn execute(self: Statement, symbol_table: *SymbolTable) !void {
     try self.executeFn(self.ptr, symbol_table);
 }
 

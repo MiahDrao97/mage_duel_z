@@ -4,6 +4,7 @@ const tokens = @import("tokens.zig");
 const Allocator = std.mem.Allocator;
 
 pub const Tokenizer = @import("Tokenizer.zig");
+pub const Parser = @import("Parser.zig");
 pub const TokenizerError = Tokenizer.TokenizerError;
 pub const expression = @import("expression.zig");
 pub const Expression = expression.Expression;
