@@ -20,10 +20,16 @@ test {
         ;
         const tokenizer = Tokenizer.init(testing.allocator);
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer {
+            // error-defer here because if something fails below, we'll get red-herring'd with a ton of memory leaks
+            Token.deinitAll(tokens);
+            testing.allocator.free(tokens);
+        }
 
         const parser: Parser = Parser.init(testing.allocator);
         var card_def: CardDef = try parser.parseTokens(tokens);
         defer card_def.deinit();
+
         // free here to make sure our card def is still intact
         Token.deinitAll(tokens);
         testing.allocator.free(tokens);

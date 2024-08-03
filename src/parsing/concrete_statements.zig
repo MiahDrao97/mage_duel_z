@@ -325,7 +325,17 @@ pub const ForLoop = struct {
 pub const ActionDefinitionStatement = struct {
     pub const ActionCostExpr = union(enum) {
         flat: IntegerLiteral,
-        dynamic: TargetExpression
+        dynamic: TargetExpression,
+
+        pub fn deinit(self: ActionCostExpr) void {
+            switch (self) {
+                ActionCostExpr.dynamic => |d| {
+                    var dyn_cpy: TargetExpression = d;
+                    dyn_cpy.deinit();
+                },
+                else => { }
+            }
+        }
     };
 
     action_cost: ActionCostExpr,

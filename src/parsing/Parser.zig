@@ -72,7 +72,9 @@ pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
             const label_expr: LabelLiteral = try LabelLiteral.from(iter);
             try labels.append(label_expr.label);
         } else if (next.stringEquals("[")) {
-            const statement: ActionDefinitionStatement = try self.parseActionDefinitionStatement(iter);
+            var statement: ActionDefinitionStatement = try self.parseActionDefinitionStatement(iter);
+            errdefer statement.deinit();
+            
             try actions.append(statement);
         } else {
             std.log.err("Unable to parse label or action definition statement with token: '{s}'",
@@ -92,11 +94,19 @@ fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !ActionDefi
     errdefer statements.deinit();
 
     _ = try iter.require("[");
-    const actionCost: ActionDefinitionStatement.ActionCostExpr = try parseActionCostExpr(iter);
+    var actionCost: ActionDefinitionStatement.ActionCostExpr = try parseActionCostExpr(iter);
+    errdefer actionCost.deinit();
+
     _ = try iter.require("]");
 
-    const whenExpr: ?WhenExpression = try parseWhenExpression(iter);
+    var whenExpr: ?WhenExpression = try parseWhenExpression(iter);
+    errdefer {
+        if (whenExpr) |*w| {
+            w.deinit();
+        }
+    }
 
+    _ = try iter.require(":");
     _ = try iter.require("{");
     while (iter.peek()) |next| {
         if (next.stringEquals("}")) {
@@ -115,7 +125,7 @@ fn parseActionCostExpr(iter: TokenIterator) !ActionDefinitionStatement.ActionCos
         // this is the most common case
         return .{ .flat = int };
     } else |_| {
-        return .{ .dynamic = try parseTargetExpression(iter) };
+        return .{ .dynamic = try parseTargetExpression(iter, false) };
     }
 }
 
@@ -135,7 +145,7 @@ fn parseWhenExpression(iter: TokenIterator) !?WhenExpression {
 }
 
 fn parseStatement(self: Parser, iter: TokenIterator) anyerror!Statement {
-    while (iter.peek()) |next| {
+    if (iter.peek()) |next| {
         if (next.symbolEquals("if")) {
             var if_statement: IfStatement = try self.parseIfStatement(iter);
             return if_statement.stmt();
@@ -251,6 +261,8 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     // assignment statment, damage statement, and function can all start with an identifier
     if (Identifier.from(iter)) |i| {
         var identifier: Identifier = i;
+        errdefer identifier.deinit();
+
         // it all comes down to the next token...
         const token: Token = try iter.requireOneOf(&[_][]const u8 { "(", "=>", "=" });
 
@@ -258,7 +270,10 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             // parse function call
             var matchedParen: bool = false;
             var expressions = ArrayList(Expression).init(self.allocator);
-            errdefer expressions.deinit();
+            errdefer {
+                Expression.deinitAll(expressions.items);
+                expressions.deinit();
+            }
 
             while (iter.peek()) |next| {
                 if (next.stringEquals(")")) {
@@ -266,7 +281,9 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
                     matchedParen = true;
                     break;
                 }
-                const expr: Expression = try parseExpression(iter);
+                var expr: Expression = try parseExpression(iter);
+                errdefer expr.deinit();
+
                 try expressions.append(expr);
             }
             if (!matchedParen) {
@@ -275,12 +292,15 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             _ = try iter.require(";");
 
             const args: []Expression = try expressions.toOwnedSlice();
+            errdefer self.allocator.free(args);
+
             var fnCall: FunctionCall = try FunctionCall.new(self.allocator, identifier.name, args);
             return fnCall.stmt();
         } else if (token.stringEquals("=>")) {
             // damage statement
-            _ = try iter.require("=>");
-            const target: Expression = try parseExpression(iter);
+            var target: Expression = try parseExpression(iter);
+            errdefer target.deinit();
+
             _ = try iter.require(";");
 
             // no allocator needed for this one
@@ -290,8 +310,9 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             };
             return dmg.stmt();
         } else if (token.stringEquals("=")) {
-            _ = try iter.require("=");
-            const rhs: Expression = try parseExpression(iter);
+            var rhs: Expression = try parseExpression(iter);
+            errdefer rhs.deinit();
+
             _ = try iter.require(";");
 
             var assignment: AssignmentStatement = try AssignmentStatement.new(identifier.name, rhs);
@@ -315,7 +336,10 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         // has to be a damage statement
         var damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
         _ = try iter.require("=>");
-        const target: Expression = try parseExpression(iter);
+
+        var target: Expression = try parseExpression(iter);
+        errdefer target.deinit();
+
         _ = try iter.require(";");
 
         var damage_expr: DamageExpression = .{
@@ -337,7 +361,10 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         // has to be a damage statement
         var damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
         _ = try iter.require("=>");
-        const target: Expression = try parseExpression(iter);
+
+        var target: Expression = try parseExpression(iter);
+        errdefer target.deinit();
+
         _ = try iter.require(";");
 
         var damage_expr: DamageExpression = .{
@@ -365,9 +392,13 @@ fn parseExpression(iter: TokenIterator) anyerror!Expression {
 }
 
 fn parseEqualityExpression(iter: TokenIterator) !Expression {
-    const lhs: Expression = try parseBooleanExpression(iter);
+    var lhs: Expression = try parseBooleanExpression(iter);
+    errdefer lhs.deinit();
+
     if (iter.nextMatchesSymbol(&[_][]const u8 { "==", "!=" })) |sym| {
-        const rhs: Expression = try parseBooleanExpression(iter);
+        var rhs: Expression = try parseBooleanExpression(iter);
+        errdefer rhs.deinit();
+
         var equalityExpr: EqualityExpression = try EqualityExpression.new(lhs, rhs, sym);
         return equalityExpr.expr();
     }
@@ -375,9 +406,13 @@ fn parseEqualityExpression(iter: TokenIterator) !Expression {
 }
 
 fn parseBooleanExpression(iter: TokenIterator) !Expression {
-    const lhs: Expression = try parseComparisonExpression(iter);
+    var lhs: Expression = try parseComparisonExpression(iter);
+    errdefer lhs.deinit();
+
     if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "|", "^" })) |sym| {
-        const rhs: Expression = try parseComparisonExpression(iter);
+        var rhs: Expression = try parseComparisonExpression(iter);
+        errdefer rhs.deinit();
+
         var booleanExpr: BooleanExpression = try BooleanExpression.new(lhs, rhs, sym);
         return booleanExpr.expr();
     }
@@ -385,9 +420,13 @@ fn parseBooleanExpression(iter: TokenIterator) !Expression {
 }
 
 fn parseComparisonExpression(iter: TokenIterator) !Expression {
-    const lhs: Expression = try parseAdditiveExpression(iter);
+    var lhs: Expression = try parseAdditiveExpression(iter);
+    errdefer lhs.deinit();
+
     if (iter.nextMatchesSymbol(&[_][]const u8 { ">", ">=", "<=", "<" })) |sym| {
-        const rhs: Expression = try parseAdditiveExpression(iter);
+        var rhs: Expression = try parseAdditiveExpression(iter);
+        errdefer rhs.deinit();
+
         var comparisonExpr: ComparisonExpression = try ComparisonExpression.new(lhs, rhs, sym);
         return comparisonExpr.expr();
     }
@@ -395,9 +434,13 @@ fn parseComparisonExpression(iter: TokenIterator) !Expression {
 }
 
 fn parseAdditiveExpression(iter: TokenIterator) !Expression {
-    const lhs: Expression = try parseFactorExpression(iter);
+    var lhs: Expression = try parseFactorExpression(iter);
+    errdefer lhs.deinit();
+
     if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "+!", "-" })) |sym| {
-        const rhs: Expression = try parseFactorExpression(iter);
+        var rhs: Expression = try parseFactorExpression(iter);
+        errdefer rhs.deinit();
+
         var additiveExpr: AdditiveExpression = try AdditiveExpression.new(lhs, rhs, sym);
         return additiveExpr.expr();
     }
@@ -405,9 +448,13 @@ fn parseAdditiveExpression(iter: TokenIterator) !Expression {
 }
 
 fn parseFactorExpression(iter: TokenIterator) !Expression {
-    const lhs: Expression = try parseUnaryExpression(iter);
+    var lhs: Expression = try parseUnaryExpression(iter);
+    errdefer lhs.deinit();
+
     if (iter.nextMatchesSymbol(&[_][]const u8 { "*", "/" })) |sym| {
-        const rhs: Expression = try parseUnaryExpression(iter);
+        var rhs: Expression = try parseUnaryExpression(iter);
+        errdefer rhs.deinit();
+
         var factorExpr: FactorExpression = try FactorExpression.new(lhs, rhs, sym);
         return factorExpr.expr();
     }
@@ -416,7 +463,9 @@ fn parseFactorExpression(iter: TokenIterator) !Expression {
 
 fn parseUnaryExpression(iter: TokenIterator) !Expression {
     if (iter.nextMatchesSymbol(&[_][]const u8 { "-", "~", "^" })) |sym| {
-        const rhs: Expression = try parsePrimaryExpression(iter);
+        var rhs: Expression = try parsePrimaryExpression(iter);
+        errdefer rhs.deinit();
+
         var unaryExpr: UnaryExpression = try UnaryExpression.new(rhs, sym);
         return unaryExpr.expr();
     }
@@ -425,10 +474,12 @@ fn parseUnaryExpression(iter: TokenIterator) !Expression {
 
 fn parsePrimaryExpression(iter: TokenIterator) !Expression {
     if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) |_| {
-        var target_expr: TargetExpression = try parseTargetExpression(iter);
+        var target_expr: TargetExpression = try parseTargetExpression(iter, true);
         return target_expr.expr();
     } else if (iter.nextMatchesSymbol(&[_][]const u8 { "(" })) |_| {
-        const expr: Expression = try parseExpression(iter);
+        var expr: Expression = try parseExpression(iter);
+        errdefer expr.deinit();
+
         _ = try iter.require(")");
 
         var paren_expr: ParenthesizedExpression = .{ .inner = expr };
@@ -474,15 +525,21 @@ fn parsePrimaryExpression(iter: TokenIterator) !Expression {
     return error.UnexpectedToken;
 }
 
-fn parseTargetExpression(iter: TokenIterator) anyerror!TargetExpression {
+fn parseTargetExpression(iter: TokenIterator, keyword_parsed: bool) anyerror!TargetExpression {
     // target(1 from [ 1 | 2 ])
 
-    _ = try iter.require("target");
+    if (!keyword_parsed) {
+        _ = try iter.require("target");
+    }
     _ = try iter.require("(");
-    const amount: Expression = try parseExpression(iter);
+
+    var amount: Expression = try parseExpression(iter);
+    errdefer amount.deinit();
 
     _ = try iter.require("from");
-    const pool: Expression = try parseExpression(iter);
+    
+    var pool: Expression = try parseExpression(iter);
+    errdefer pool.deinit();
 
     _ = try iter.require(")");
 
