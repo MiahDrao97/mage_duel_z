@@ -13,6 +13,7 @@ const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
 const ParseTokenError = imports.ParseTokenError;
+const Wyhash = std.hash.Wyhash;
 
 pub const Result = union(enum) {
     integer: IntResult,
@@ -24,7 +25,6 @@ pub const Result = union(enum) {
     label: Label,
     identifier: Symbol,
     void: void,
-    // TODO: add player, cards, decks, etc.
 
     pub fn as(self: Result, comptime T: type) ?T {
         switch (self) {
@@ -51,7 +51,120 @@ pub const Result = union(enum) {
     pub fn isList(self: Result) ?ListResult {
         return self.as(ListResult);
     }
+
+    pub const Context = struct {
+        pub fn hash(_: Context, k: Result) u32 {
+            var hash_result: u64 = 0;
+            var result_type: u8 = 0;
+            switch (k) {
+                Result.void => hash_result = 0,
+                Result.integer => |int| {
+                    result_type = 1;
+                    const bytes: [@sizeOf(i32)]u8 = std.mem.toBytes(int.value);
+                    const hash_size: comptime_int = @sizeOf(i32) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.boolean => |boolean| {
+                    result_type = 2;
+                    const bytes: [@sizeOf(bool)]u8 = std.mem.toBytes(boolean);
+                    const hash_size: comptime_int = @sizeOf(bool) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.damage_type => |damage_type| {
+                    result_type = 3;
+                    const bytes: [@sizeOf(DamageType)]u8 = std.mem.toBytes(damage_type);
+                    const hash_size: comptime_int = @sizeOf(DamageType) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.damage_transaction => |damage_transaction| {
+                    result_type = 4;
+                    const bytes: [@sizeOf(DamageTransaction)]u8 = std.mem.toBytes(damage_transaction);
+                    const hash_size: comptime_int = @sizeOf(DamageTransaction) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.dice => |dice| {
+                    result_type = 5;
+                    const bytes: [@sizeOf(DiceResult)]u8 = std.mem.toBytes(dice);
+                    const hash_size: comptime_int = @sizeOf(DiceResult) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.label => |label| {
+                    result_type = 6;
+                    const bytes: [@sizeOf(Label)]u8 = std.mem.toBytes(label);
+                    const hash_size: comptime_int = @sizeOf(Label) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.identifier => |identifier| {
+                    result_type = 6;
+                    var ptr: usize = undefined;
+                    switch (identifier) {
+                        Symbol.value => |v| ptr = @intFromPtr(v),
+                        Symbol.function => |f| ptr = @intFromPtr(f),
+                        Symbol.complex_object => |o| ptr = @intFromPtr(o)
+                    }
+                    const bytes: [@sizeOf(usize)]u8 = std.mem.toBytes(ptr);
+                    const hash_size: comptime_int = @sizeOf(usize) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                Result.list => |list| {
+                    result_type = 7;
+                    // TODO: do we wanna hash each item because we're not evaluating the contents
+                    const ptr: usize = @intFromPtr(list.items.ptr);
+                    const bytes: [@sizeOf(usize)]u8 = std.mem.toBytes(ptr);
+                    const hash_size: comptime_int = @sizeOf(usize) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (0..@intCast(hash_size)) |i| {
+                        to_hash[i + 1] = bytes[i];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                }
+            }
+            return @truncate(hash_result);
+        }
+
+        pub fn eql(self: Context, a: Result, b: Result, _: usize) bool {
+            return self.hash(a) == self.hash(b);
+        }
+    };
 };
+
+pub const ResultHashSet = std.ArrayHashMap(Result, void, Result.Context, false);
 
 pub const DiceResult = struct {
     count: u16,
@@ -132,7 +245,7 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = ResultHashSet.init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
@@ -182,7 +295,7 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = ResultHashSet.init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items
@@ -212,7 +325,7 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        var hash_set = std.AutoArrayHashMap(Result, void).init(self.allocator);
+        var hash_set = ResultHashSet.init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items from self
@@ -242,7 +355,7 @@ pub const ListResult = struct {
             return Error.ElementTypesVary;
         }
 
-        var hash_set = std.AutoHashMap(Result, void).init(self.allocator);
+        var hash_set = ResultHashSet.init(self.allocator);
         defer hash_set.deinit();
 
         // copy the items from self
@@ -250,18 +363,14 @@ pub const ListResult = struct {
             try hash_set.put(item, {});
         }
         // remove the items from other
-        _ = hash_set.remove(to_remove);
+        _ = hash_set.orderedRemove(to_remove);
 
-        var iter = hash_set.keyIterator();
+        const keys: []Result = hash_set.keys();
         // copy the keys (before we nuke the above hash set)
-        var copied_items: []Result = try self.allocator.alloc(Result, iter.len);
+        const copied_items: []Result = try self.allocator.alloc(Result, keys.len);
         errdefer self.allocator.free(copied_items);
 
-        var i: usize = 0;
-        while (iter.next()) |next| {
-            copied_items[i] = next.*;
-            i += 1;
-        }
+        @memcpy(copied_items, keys);
 
         return try ListResult.from(self.allocator, copied_items);
     }
