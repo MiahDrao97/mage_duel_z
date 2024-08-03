@@ -52,12 +52,18 @@ pub fn init(allocator: Allocator) Parser {
 
 pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
     var actions = try ArrayList(ActionDefinitionStatement).initCapacity(self.allocator, to_parse.len);
-    errdefer actions.deinit();
+    defer actions.deinit();
+    errdefer {
+        for (actions.items) |*action| {
+            action.deinit();
+        }
+    }
 
     var labels = ArrayList(Label).init(self.allocator);
-    errdefer labels.deinit();
+    defer labels.deinit();
 
     var iter: TokenIterator = try TokenIterator.from(self.allocator, to_parse);
+    defer iter.deinit();
 
     // topmost level
     while (iter.peek()) |next| {

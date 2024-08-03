@@ -258,8 +258,7 @@ pub const ListResult = struct {
 
         const combined_items: []Result = hash_set.keys();
         // copy the keys (before we nuke the above hash set)
-        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
-        _ = &copied_items;
+        const copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
@@ -306,8 +305,7 @@ pub const ListResult = struct {
 
         const combined_items: []Result = hash_set.keys();
         // copy the keys (before we nuke the above hash set)
-        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
-        _ = &copied_items;
+        const copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
@@ -339,8 +337,7 @@ pub const ListResult = struct {
 
         const combined_items: []Result = hash_set.keys();
         // copy the keys (before we nuke the above hash set)
-        var copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
-        _ = &copied_items;
+        const copied_items: []Result = try self.allocator.alloc(Result, combined_items.len);
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
@@ -369,7 +366,6 @@ pub const ListResult = struct {
         // copy the keys (before we nuke the above hash set)
         const copied_items: []Result = try self.allocator.alloc(Result, keys.len);
         errdefer self.allocator.free(copied_items);
-
         @memcpy(copied_items, keys);
 
         return try ListResult.from(self.allocator, copied_items);
@@ -461,8 +457,7 @@ pub const Scope = struct {
 
     pub fn putValue(self: *Scope, name: []const u8, value: Result) Allocator.Error!void {
         // copy name
-        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
-        _ = &name_cpy;
+        const name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
         errdefer self.allocator.free(name_cpy);
         @memcpy(name_cpy, name);
 
@@ -476,8 +471,7 @@ pub const Scope = struct {
 
     pub fn putFunc(self: *Scope, name: []const u8, func: FunctionDef) Allocator.Error!void {
         // copy name
-        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
-        _ = &name_cpy;
+        const name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
         errdefer self.allocator.free(name_cpy);
         @memcpy(name_cpy, name);
 
@@ -486,8 +480,7 @@ pub const Scope = struct {
 
     pub fn putObj(self: *Scope, name: []const u8, obj: *Scope) Allocator.Error!void {
         // copy name
-        var name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
-        _ = &name_cpy;
+        const name_cpy: []u8 = try self.allocator.alloc(u8, name.len);
         errdefer self.allocator.free(name_cpy);
         @memcpy(name_cpy, name);
 

@@ -40,6 +40,9 @@ pub const CardDef = struct {
     }
 
     pub fn deinit(self: *CardDef) void {
+        for (self.actions) |*action| {
+            action.deinit();
+        }
         self.allocator.free(self.labels);
         self.allocator.free(self.actions);
         self.* = undefined;

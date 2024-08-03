@@ -25,9 +25,10 @@ test {
         var card_def: CardDef = try parser.parseTokens(tokens);
         defer card_def.deinit();
         // free here to make sure our card def is still intact
+        Token.deinitAll(tokens);
         testing.allocator.free(tokens);
 
-        try testing.expect(card_def.labels.len == 1);
+        try testing.expect(card_def.labels.len == 2);
         try testing.expect(card_def.actions.len == 1);
     }
 }

@@ -34,10 +34,8 @@ pub const TokenizerError = InnerErrors || import_tokens.ParseTokenError;
 /// Thus, there is no `deinit()` on this structure.
 pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     var tokens_list = try ArrayList(Token).initCapacity(self.allocator, script.len);
-    errdefer {
-        Token.deinitAll(tokens_list.items);
-        tokens_list.deinit();
-    }
+    errdefer Token.deinitAll(tokens_list.items);
+    defer tokens_list.deinit();
 
     var tokens_iter = Iterator(u8).from(script);
     var next_first: ?u8 = null;
@@ -77,7 +75,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     }
 
     try tokens_list.append(Token.eof);
-    return tokens_list.toOwnedSlice();
+    return try tokens_list.toOwnedSlice();
 }
 
 fn consumeWhitespace(tokens: *Iterator(u8)) ?u8 {

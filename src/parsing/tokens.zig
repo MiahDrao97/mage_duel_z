@@ -56,8 +56,7 @@ pub const StringToken = struct {
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*StringToken {
-        var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        _ = &str_copy;
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
@@ -87,8 +86,7 @@ pub const NumericToken = struct {
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*NumericToken {
-        var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        _ = &str_copy;
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
@@ -130,8 +128,7 @@ pub const BooleanToken = struct {
             return ParseTokenError.ParseBoolError;
         }
 
-        var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        _ = &str_copy;
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
@@ -164,8 +161,7 @@ pub const DamageTypeToken = struct {
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*DamageTypeToken {
         const dmg_type: DamageType = try DamageType.from(str);
 
-        var str_copy: []u8 = try allocator.alloc(u8, str.len);
-        _ = &str_copy;
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
@@ -210,9 +206,8 @@ pub const DiceToken = struct {
             return ParseTokenError.ParseDiceError;
         }
 
-        var str_copy: []u8 = try allocator.alloc(u8, str.len);
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
-        _ = &str_copy;
         @memcpy(str_copy, str);
 
         const ptr: *DiceToken = try allocator.create(DiceToken);
