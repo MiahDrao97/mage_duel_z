@@ -39,6 +39,7 @@ pub const IntegerLiteral = struct {
             if (token.getNumericValue()) |n| {
                 return .{ .val = n };
             }
+            iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
         }
         return ParseError.EOF;
@@ -69,6 +70,7 @@ pub const BooleanLiteral = struct {
             if (token.getBoolValue()) |b| {
                 return .{ .val = b };
             }
+            iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
         }
         return ParseError.EOF;
@@ -95,6 +97,7 @@ pub const DamageTypeLiteral = struct {
             if (token.getDamageTypeValue()) |d| {
                 return .{ .val = d };
             }
+            iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
         }
         return ParseError.EOF;
@@ -127,10 +130,16 @@ pub const DiceLiteral = struct {
                     if (next_token.getDiceValue()) |d| {
                         return .{ .count = n, .val = d };
                     }
+                    // scroll back 2 tokens
+                    iter.internal_iter.scroll(-2);
                     return ParseError.UnexpectedToken;
                 }
+                // scroll back 1 token
+                iter.internal_iter.scroll(-1);
                 return ParseError.EOF;
             }
+            // scroll back 1 token
+            iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
         }
         return ParseError.EOF;

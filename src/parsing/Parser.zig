@@ -91,7 +91,10 @@ pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
 
 fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !ActionDefinitionStatement {
     var statements = ArrayList(Statement).init(self.allocator);
-    errdefer statements.deinit();
+    errdefer {
+        Statement.deinitAll(statements.items);
+        statements.deinit();
+    }
 
     _ = try iter.require("[");
     var actionCost: ActionDefinitionStatement.ActionCostExpr = try parseActionCostExpr(iter);
@@ -331,31 +334,6 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             }
         }
     }
-    if (IntegerLiteral.from(iter)) |i| {
-        var int: IntegerLiteral = i;
-        // has to be a damage statement
-        var damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
-        _ = try iter.require("=>");
-
-        var target: Expression = try parseExpression(iter);
-        errdefer target.deinit();
-
-        _ = try iter.require(";");
-
-        var damage_expr: DamageExpression = .{
-            .amount_expr = int.expr(),
-            .damage_type_expr = damage_type.expr()
-        };
-
-        var damage_stmt: DamageStatement = .{
-            .damage_transaction_expr = damage_expr.expr(),
-            .target_expr = target
-        };
-        return damage_stmt.stmt();
-    } else |_| {
-        // roll back 1 token (it wasn't an integer literal)
-        iter.internal_iter.scroll(-1);
-    }
     if (DiceLiteral.from(iter)) |d| {
         var dice: DiceLiteral = d;
         // has to be a damage statement
@@ -378,8 +356,31 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         };
         return damage_stmt.stmt();
     } else |_| {
-        // roll back 1 token (it wasn't a dice literal)
-        iter.internal_iter.scroll(-1);
+        // DiceLiteral.from() handles the scrolling since it's variable
+    }
+    if (IntegerLiteral.from(iter)) |i| {
+        var int: IntegerLiteral = i;
+        // has to be a damage statement
+        var damage_type: DamageTypeLiteral = try DamageTypeLiteral.from(iter);
+        _ = try iter.require("=>");
+
+        var target: Expression = try parseExpression(iter);
+        errdefer target.deinit();
+
+        _ = try iter.require(";");
+
+        var damage_expr: DamageExpression = .{
+            .amount_expr = int.expr(),
+            .damage_type_expr = damage_type.expr()
+        };
+
+        var damage_stmt: DamageStatement = .{
+            .damage_transaction_expr = damage_expr.expr(),
+            .target_expr = target
+        };
+        return damage_stmt.stmt();
+    } else |_| {
+        // handles the scrolling
     }
 
     const next_tok: Token = iter.peek() orelse Token.eof;
@@ -487,10 +488,6 @@ fn parsePrimaryExpression(iter: TokenIterator) !Expression {
     } else {
         // parse integer, boolean, damage type, dice, identifier, list literal
         // leaving damage expression out because it's a composite of integer/dice + damage type (see parsing damage statements)
-        if (IntegerLiteral.from(iter)) |i| {
-            var int: IntegerLiteral = i;
-            return int.expr();
-        } else |_| { }
 
         if (BooleanLiteral.from(iter)) |b| {
             var boolean: BooleanLiteral = b;
@@ -507,6 +504,11 @@ fn parsePrimaryExpression(iter: TokenIterator) !Expression {
             return damage_type.expr();
         } else |_| { }
 
+        if (IntegerLiteral.from(iter)) |i| {
+            var int: IntegerLiteral = i;
+            return int.expr();
+        } else |_| { }
+
         if (Identifier.from(iter)) |i| {
             var identifier: Identifier = i;
             return identifier.expr();
@@ -516,12 +518,14 @@ fn parsePrimaryExpression(iter: TokenIterator) !Expression {
                     std.log.err("Out of memory while trying to parse identifier.", .{});
                     return err;
                 },
-                else => { }
+                else => {
+                    iter.internal_iter.scroll(-1);
+                }
             }
         }
     }
     const next_tok: Token = iter.peek() orelse Token.eof;
-    std.log.err("Cannot parse statement beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
+    std.log.err("Cannot parse expression beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
     return error.UnexpectedToken;
 }
 
