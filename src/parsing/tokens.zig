@@ -300,11 +300,10 @@ pub const Token = union(enum) {
     }
 
     pub fn stringEquals(self: Token, str: []const u8) bool {
-        const self_str: ?[]const u8 = self.toString();
-        if (self_str == null) {
-            return false;
+        if (self.toString()) |self_str| {
+            return std.mem.eql(u8, self_str, str);
         }
-        return std.mem.eql(u8, self_str.?, str);
+        return false;
     }
 
     pub fn symbolEquals(self: Token, str: []const u8) bool {

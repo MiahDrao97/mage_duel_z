@@ -28,10 +28,10 @@ pub const Label = expression.Label;
 
 pub const CardDef = struct {
     labels: []Label,
-    actions: []ActionDefinitionStatement,
+    actions: []*ActionDefinitionStatement,
     allocator: Allocator,
 
-    pub fn init(allocator: Allocator, labels: []Label, actions: []ActionDefinitionStatement) CardDef {
+    pub fn init(allocator: Allocator, labels: []Label, actions: []*ActionDefinitionStatement) CardDef {
         return .{
             .labels = labels,
             .actions = actions,
@@ -40,7 +40,7 @@ pub const CardDef = struct {
     }
 
     pub fn deinit(self: *CardDef) void {
-        for (self.actions) |*action| {
+        for (self.actions) |action| {
             action.deinit();
         }
         self.allocator.free(self.labels);

@@ -31,20 +31,24 @@ pub const FunctionCall = struct {
     args: []Expression,
     allocator: Allocator,
 
-    pub fn new(allocator: Allocator, name: Token, args: []Expression) !FunctionCall {
+    pub fn new(allocator: Allocator, name: Token, args: []Expression) !*FunctionCall {
         try name.expectMatches(@tagName(Token.identifier));
-        return .{
+        const ptr: *FunctionCall = try allocator.create(FunctionCall);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .name = try name.clone(),
             .args = args,
             .allocator = allocator
         };
+        return ptr;
     }
 
     pub fn deinit(self: *FunctionCall) void {
         self.name.deinit();
         Expression.deinitAll(self.args);
         self.allocator.free(self.args);
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
@@ -114,6 +118,21 @@ pub const FunctionCall = struct {
 pub const DamageStatement = struct {
     damage_transaction_expr: Expression,
     target_expr: Expression,
+    allocator: Allocator,
+
+    pub fn new(
+        allocator: Allocator,
+        damage_transaction_expr: Expression,
+        target_expr: Expression
+    ) Allocator.Error!*DamageStatement {
+        const ptr: *DamageStatement = try allocator.create(DamageStatement);
+        ptr.* = .{
+            .damage_transaction_expr = damage_transaction_expr,
+            .target_expr = target_expr,
+            .allocator = allocator
+        };
+        return ptr;
+    }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
@@ -151,7 +170,7 @@ pub const DamageStatement = struct {
     pub fn deinit(self: *DamageStatement) void {
         self.damage_transaction_expr.deinit();
         self.target_expr.deinit();
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn stmt(self: *DamageStatement) Statement {
@@ -169,18 +188,20 @@ pub const IfStatement = struct {
     else_statements: []Statement,
     allocator: Allocator,
 
-    pub fn init(
+    pub fn new(
         allocator: Allocator,
         condition: Expression,
         true_statements: []Statement,
         else_statements: []Statement
-    ) IfStatement {
-        return .{
+    ) Allocator.Error!*IfStatement {
+        const ptr: *IfStatement = try allocator.create(IfStatement);
+        ptr.* = .{
             .condition = condition,
             .true_statements = true_statements,
             .else_statements = else_statements,
             .allocator = allocator
         };
+        return ptr;
     }
 
     pub fn deinit(self: *IfStatement) void {
@@ -189,8 +210,7 @@ pub const IfStatement = struct {
         Statement.deinitAll(self.else_statements);
         self.allocator.free(self.true_statements);
         self.allocator.free(self.else_statements);
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
@@ -241,14 +261,18 @@ pub const ForLoop = struct {
         identifier: Token,
         range: Expression,
         statements: []Statement
-    ) !ForLoop {
+    ) !*ForLoop {
         try identifier.expectMatches(@tagName(Token.identifier));
-        return .{
+        const ptr: *ForLoop = try allocator.create(ForLoop);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .identifier = try identifier.clone(),
             .range = range,
             .statements = statements,
             .allocator = allocator
         };
+        return ptr;
     }
 
     pub fn deinit(self: *ForLoop) void {
@@ -256,8 +280,7 @@ pub const ForLoop = struct {
         self.range.deinit();
         Statement.deinitAll(self.statements);
         self.allocator.free(self.statements);
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
@@ -324,48 +347,45 @@ pub const ForLoop = struct {
 
 pub const ActionDefinitionStatement = struct {
     pub const ActionCostExpr = union(enum) {
-        flat: IntegerLiteral,
-        dynamic: TargetExpression,
+        flat: *IntegerLiteral,
+        dynamic: *TargetExpression,
 
         pub fn deinit(self: ActionCostExpr) void {
             switch (self) {
-                ActionCostExpr.dynamic => |d| {
-                    var dyn_cpy: TargetExpression = d;
-                    dyn_cpy.deinit();
-                },
-                else => { }
+                inline else => |x| x.deinit()
             }
         }
     };
 
     action_cost: ActionCostExpr,
-    condition: ?WhenExpression,
+    condition: ?*WhenExpression,
     statements: []Statement,
     allocator: Allocator,
 
     /// Init's a new instance of `ActionDefinitionStatement`.
     /// `statements` is presumably allocated by `allocator`.
     /// That memory is owned by this structure.
-    pub fn init(
+    pub fn new(
         allocator: Allocator,
         statements: []Statement,
         action_cost: ActionCostExpr,
-        condition: ?WhenExpression
-    ) ActionDefinitionStatement {
-        return .{
+        condition: ?*WhenExpression
+    ) Allocator.Error!*ActionDefinitionStatement {
+        const ptr: *ActionDefinitionStatement = try allocator.create(ActionDefinitionStatement);
+        ptr.* = .{
             .action_cost = action_cost,
             .condition = condition,
             .statements = statements,
             .allocator = allocator
         };
+        return ptr;
     }
 
     pub fn deinit(self: *ActionDefinitionStatement) void {
-        for (self.statements) |inner_stmt| {
-            inner_stmt.deinit();
-        }
+        Statement.deinitAll(self.statements);
         self.allocator.free(self.statements);
-        self.* = undefined;
+        self.action_cost.deinit();
+        self.allocator.destroy(self);
     }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
@@ -414,22 +434,32 @@ pub const ActionDefinitionStatement = struct {
 pub const AssignmentStatement = struct {
     identifier: Token,
     value: Expression,
+    allocator: Allocator,
 
     /// Init's a new instance of `AssignmentStatement`.
     /// `identifier` was presumably allocated by `allocator`.
     /// This structure owns that memory.
-    pub fn new(identifier: Token, value: Expression) !AssignmentStatement {
+    pub fn new(
+        allocator: Allocator,
+        identifier: Token,
+        value: Expression
+    ) !*AssignmentStatement {
         try identifier.expectMatches(@tagName(Token.identifier));
-        return .{
+        const ptr: *AssignmentStatement = try allocator.create(AssignmentStatement);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .identifier = try identifier.clone(),
-            .value = value
+            .value = value,
+            .allocator = allocator
         };
+        return ptr;
     }
 
     pub fn deinit(self: *AssignmentStatement) void {
         self.identifier.deinit();
         self.value.deinit();
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {

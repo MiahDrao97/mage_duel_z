@@ -33,11 +33,17 @@ pub const ParseError = InnerError || imports.ParseTokenError || imports.Error;
 
 pub const IntegerLiteral = struct {
     val: u16,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!IntegerLiteral {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*IntegerLiteral {
         if (iter.next()) |token| {
             if (token.getNumericValue()) |n| {
-                return .{ .val = n };
+                const ptr: *IntegerLiteral = try allocator.create(IntegerLiteral);
+                ptr.* = .{
+                    .val = n,
+                    .allocator = allocator
+                };
+                return ptr;
             }
             iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
@@ -54,21 +60,37 @@ pub const IntegerLiteral = struct {
         };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *IntegerLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
+    }
+
+    pub fn deinit(self: *IntegerLiteral) void {
+        self.allocator.destroy(self);
     }
 };
 
 pub const BooleanLiteral = struct {
     val: bool,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!BooleanLiteral {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*BooleanLiteral {
         if (iter.next()) |token| {
             if (token.getBoolValue()) |b| {
-                return .{ .val = b };
+                const ptr: *BooleanLiteral = try allocator.create(BooleanLiteral);
+                ptr.* = .{
+                    .val = b,
+                    .allocator = allocator
+                };
+                return ptr;
             }
             iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
@@ -81,21 +103,37 @@ pub const BooleanLiteral = struct {
         return .{ .boolean = self.val };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *BooleanLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
+    }
+
+    pub fn deinit(self: *BooleanLiteral) void {
+        self.allocator.destroy(self);
     }
 };
 
 pub const DamageTypeLiteral = struct {
     val: DamageType,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!DamageTypeLiteral {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*DamageTypeLiteral {
         if (iter.next()) |token| {
             if (token.getDamageTypeValue()) |d| {
-                return .{ .val = d };
+                const ptr: *DamageTypeLiteral = try allocator.create(DamageTypeLiteral);
+                ptr.* = .{
+                    .val = d,
+                    .allocator = allocator
+                };
+                return ptr;
             }
             iter.internal_iter.scroll(-1);
             return ParseError.UnexpectedToken;
@@ -108,27 +146,49 @@ pub const DamageTypeLiteral = struct {
         return .{ .damage_type = self.val };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *DamageTypeLiteral = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *DamageTypeLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
+    }
+
+    pub fn deinit(self: *DamageTypeLiteral) void {
+        self.allocator.destroy(self);
     }
 };
 
 pub const DiceLiteral = struct {
     count: u16 = 1,
     val: Dice,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!DiceLiteral {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*DiceLiteral {
         if (iter.next()) |token| {
             if (token.getDiceValue()) |d| {
-                return .{ .val = d };
+                const ptr: *DiceLiteral = try allocator.create(DiceLiteral);
+                ptr.* = .{
+                    .val = d,
+                    .allocator = allocator,
+                };
+                return ptr;
             } else if (token.getNumericValue()) |n| {
                 // case with multiple dice, like 2d4
                 if (iter.next()) |next_token| {
                     if (next_token.getDiceValue()) |d| {
-                        return .{ .count = n, .val = d };
+                        const ptr: *DiceLiteral = try allocator.create(DiceLiteral);
+                        ptr.* = .{
+                            .count = n,
+                            .val = d,
+                            .allocator = allocator
+                        };
+                        return ptr;
                     }
                     // scroll back 2 tokens
                     iter.internal_iter.scroll(-2);
@@ -155,17 +215,42 @@ pub const DiceLiteral = struct {
         };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *DiceLiteral = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *DiceLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
+    }
+
+    pub fn deinit(self: *DiceLiteral) void {
+        self.allocator.destroy(self);
     }
 };
 
 pub const DamageExpression = struct {
     amount_expr: Expression,
     damage_type_expr: Expression,
+    allocator: Allocator,
+
+    pub fn new(
+        allocator: Allocator,
+        amount_expr: Expression,
+        damage_type_expr: Expression
+    ) Allocator.Error!*DamageExpression {
+        const ptr: *DamageExpression = try allocator.create(DamageExpression);
+        ptr.* = .{
+            .amount_expr = amount_expr,
+            .damage_type_expr = damage_type_expr,
+            .allocator = allocator
+        };
+        return ptr;
+    }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *DamageExpression = @ptrCast(@alignCast(this_ptr));
@@ -203,7 +288,7 @@ pub const DamageExpression = struct {
     pub fn deinit(self: *DamageExpression) void {
         self.amount_expr.deinit();
         self.damage_type_expr.deinit();
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *DamageExpression) Expression {
@@ -219,6 +304,16 @@ pub const DamageExpression = struct {
 /// and we can't parse other expressions in this scope.
 pub const ListLiteral = struct {
     vals: []Expression,
+    allocator: Allocator,
+
+    pub fn new(allocator: Allocator, items: []Expression) Allocator.Error!*ListLiteral {
+        const ptr: *ListLiteral = try allocator.create(ListLiteral);
+        ptr.* = .{
+            .vals = items,
+            .allocator = allocator
+        };
+        return ptr;
+    }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *ListLiteral = @ptrCast(@alignCast(this_ptr));
@@ -229,7 +324,9 @@ pub const ListLiteral = struct {
             evaluated[i] = try self.vals[i].evaluate(symbol_table);
         }
 
-        return .{ .list = try ListResult.from(symbol_table.allocator, evaluated) };
+        return .{
+            .list = try ListResult.from(symbol_table.allocator, evaluated)
+        };
     }
 
     fn deinitFn(this_ptr: *anyopaque) void {
@@ -239,7 +336,8 @@ pub const ListLiteral = struct {
 
     pub fn deinit(self: *ListLiteral) void {
         Expression.deinitAll(self.vals);
-        self.* = undefined;
+        self.allocator.free(self.vals);
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *ListLiteral) Expression {
@@ -253,8 +351,9 @@ pub const ListLiteral = struct {
 
 pub const LabelLiteral = struct {
     label: Label,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!LabelLiteral {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*LabelLiteral {
         _ = try iter.require("#");
         const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
         var label: Label = undefined;
@@ -267,12 +366,23 @@ pub const LabelLiteral = struct {
                 _ = iter.next();
                 const rhs: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier), @tagName(Token.numeric) });
                 label = try Label.from(label_token.toString().?, rhs.toString());
-                return .{ .label = label };
+
+                const ptr: *LabelLiteral = try allocator.create(LabelLiteral);
+                ptr.* = .{
+                    .label = label,
+                    .allocator = allocator
+                };
+                return ptr;
             }
         }
 
         label = try Label.from(label_token.toString().?, null);
-        return .{ .label = label };
+        const ptr: *LabelLiteral = try allocator.create(LabelLiteral);
+        ptr.* = .{
+            .label = label,
+            .allocator = allocator
+        };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
@@ -280,20 +390,39 @@ pub const LabelLiteral = struct {
         return .{ .label = self.label };
     }
 
+    fn deinitFn(this_ptr: *anyopaque) void {
+        const self: *LabelLiteral = @ptrCast(@alignCast(this_ptr));
+        self.deinit();
+    }
+
     pub fn expr(self: *LabelLiteral) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
+    }
+
+    pub fn deinit(self: *LabelLiteral) void {
+        self.allocator.destroy(self);
     }
 };
 
 pub const Identifier = struct {
     name: Token,
+    allocator: Allocator,
 
-    pub fn from(iter: TokenIterator) ParseError!Identifier {
+    pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*Identifier {
         const identifier_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
-        return .{ .name = try identifier_token.clone() };
+        
+        const ptr: *Identifier = try allocator.create(Identifier);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
+            .name = try identifier_token.clone(),
+            .allocator = allocator
+        };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -312,7 +441,7 @@ pub const Identifier = struct {
 
     pub fn deinit(self: *Identifier) void {
         self.name.deinit();
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *Identifier) Expression {
@@ -327,39 +456,30 @@ pub const Identifier = struct {
 pub const ParensthesizedExpression = struct {
     inner: Expression,
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
-        return self.inner.evaluate(symbol_table);
-    }
-
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *ParensthesizedExpression = @ptrCast(@alignCast(this_ptr));
-        self.deinit();
-    }
-
-    pub fn deinit(self: *ParensthesizedExpression) void {
+    pub fn deinit(self: ParensthesizedExpression) void {
         self.inner.deinit();
-        self.* = undefined;
     }
 
-    pub fn expr(self: *ParensthesizedExpression) Expression {
-        return Expression {
-            .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
-        };
+    pub fn expr(self: ParensthesizedExpression) Expression {
+        return self.inner;
     }
 };
 
 pub const UnaryExpression = struct {
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(rhs: Expression, op: Token) Error!UnaryExpression {
-        return .{
+    pub fn new(allocator: Allocator, rhs: Expression, op: Token) Error!*UnaryExpression {
+        const ptr: *UnaryExpression = try allocator.create(UnaryExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -404,8 +524,7 @@ pub const UnaryExpression = struct {
     pub fn deinit(self: *UnaryExpression) void {
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *UnaryExpression) Expression {
@@ -421,13 +540,24 @@ pub const AdditiveExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(lhs: Expression, rhs: Expression, op: Token) Error!AdditiveExpression {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        lhs: Expression,
+        rhs: Expression,
+        op: Token
+    ) Error!*AdditiveExpression {
+        const ptr: *AdditiveExpression = try allocator.create(AdditiveExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .lhs = lhs,
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -447,8 +577,7 @@ pub const AdditiveExpression = struct {
                             .value = lh_int.value + rh_int
                         }
                     };
-                }
-                else {
+                } else {
                     return .{
                         .integer = .{
                             .value = lh_int.value - rh_int
@@ -467,7 +596,6 @@ pub const AdditiveExpression = struct {
                     } else {
                         new_list = try lh_list.remove(rh_list);
                     }
-
                     return .{ .list = new_list };
                 } else {
                     var new_list: ListResult = undefined;
@@ -478,7 +606,6 @@ pub const AdditiveExpression = struct {
                     } else {
                         new_list = try lh_list.removeOne(rh_result);
                     }
-
                     return .{ .list = new_list };
                 }
             },
@@ -513,8 +640,7 @@ pub const AdditiveExpression = struct {
         self.lhs.deinit();
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *AdditiveExpression) Expression {
@@ -530,13 +656,24 @@ pub const FactorExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(lhs: Expression, rhs: Expression, op: Token) Error!FactorExpression {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        lhs: Expression,
+        rhs: Expression,
+        op: Token
+    ) Error!*FactorExpression {
+        const ptr: *FactorExpression = try allocator.create(FactorExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .lhs = lhs,
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -574,8 +711,7 @@ pub const FactorExpression = struct {
         self.lhs.deinit();
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *FactorExpression) Expression {
@@ -591,13 +727,24 @@ pub const ComparisonExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(lhs: Expression, rhs: Expression, op: Token) Error!ComparisonExpression {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        lhs: Expression,
+        rhs: Expression,
+        op: Token
+    ) Error!*ComparisonExpression {
+        const ptr: *ComparisonExpression = try allocator.create(ComparisonExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .lhs = lhs,
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -631,8 +778,7 @@ pub const ComparisonExpression = struct {
         self.lhs.deinit();
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *ComparisonExpression) Expression {
@@ -648,13 +794,24 @@ pub const EqualityExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(lhs: Expression, rhs: Expression, op: Token) Error!EqualityExpression {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        lhs: Expression,
+        rhs: Expression,
+        op: Token
+    ) Error!*EqualityExpression {
+        const ptr: *EqualityExpression = try allocator.create(EqualityExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .lhs = lhs,
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -695,8 +852,7 @@ pub const EqualityExpression = struct {
         self.lhs.deinit();
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *EqualityExpression) Expression {
@@ -712,13 +868,24 @@ pub const BooleanExpression = struct {
     lhs: Expression,
     rhs: Expression,
     op: Token,
+    allocator: Allocator,
 
-    pub fn new(lhs: Expression, rhs: Expression, op: Token) Error!BooleanExpression {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        lhs: Expression,
+        rhs: Expression,
+        op: Token
+    ) Error!*BooleanExpression {
+        const ptr: *BooleanExpression = try allocator.create(BooleanExpression);
+        errdefer allocator.destroy(ptr);
+
+        ptr.* = .{
             .lhs = lhs,
             .rhs = rhs,
-            .op = try op.clone()
+            .op = try op.clone(),
+            .allocator = allocator
         };
+        return ptr;
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -749,8 +916,7 @@ pub const BooleanExpression = struct {
         self.lhs.deinit();
         self.rhs.deinit();
         self.op.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *BooleanExpression) Expression {
@@ -763,10 +929,26 @@ pub const BooleanExpression = struct {
 };
 
 /// Ex.
-/// `target(1 in from Monster)`
+/// `target(1 from Monster)` or
+/// `target(1 from [1 | 2])`
 pub const TargetExpression = struct {
     amount: Expression,
     pool: Expression,
+    allocator: Allocator,
+
+    pub fn new(
+        allocator: Allocator,
+        amount: Expression,
+        pool: Expression
+    ) Allocator.Error!*TargetExpression {
+        const ptr: *TargetExpression = try allocator.create(TargetExpression);
+        ptr.* = .{
+            .amount = amount,
+            .pool = pool,
+            .allocator = allocator
+        };
+        return ptr;
+    }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *TargetExpression = @ptrCast(@alignCast(this_ptr));
@@ -801,8 +983,7 @@ pub const TargetExpression = struct {
     pub fn deinit(self: *TargetExpression) void {
         self.amount.deinit();
         self.pool.deinit();
-
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *TargetExpression) Expression {
@@ -833,6 +1014,16 @@ pub const AccessorExpression = struct {
     };
 
     accessor_chain: []Link,
+    allocator: Allocator,
+
+    pub fn new(allocator: Allocator, accessor_chain: []Link) Allocator.Error!*AccessorExpression {
+        const ptr: *AccessorExpression = try allocator.create(AccessorExpression);
+        ptr.* = .{
+            .accessor_chain = accessor_chain,
+            .allocator = allocator
+        };
+        return ptr;
+    }
     
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
@@ -894,19 +1085,31 @@ pub const AccessorExpression = struct {
                 inline else => |x| x.deinit()
             }
         }
-        self.* = undefined;
+        self.allocator.free(self.accessor_chain);
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *AccessorExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate
+            .evaluateFn = &evaluate,
+            .deinitFn = &deinitFn
         };
     }
 };
 
 pub const WhenExpression = struct {
     condition: Expression,
+    allocator: Allocator,
+
+    pub fn new(allocator: Allocator, condition: Expression) Allocator.Error!*WhenExpression {
+        const ptr: *WhenExpression = try allocator.create(WhenExpression);
+        ptr.* = .{
+            .condition = condition,
+            .allocator = allocator,
+        };
+        return ptr;
+    }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *WhenExpression = @ptrCast(@alignCast(this_ptr));
@@ -924,7 +1127,7 @@ pub const WhenExpression = struct {
 
     pub fn deinit(self: *WhenExpression) void {
         self.condition.deinit();
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
     pub fn expr(self: *WhenExpression) Expression {
