@@ -39,6 +39,46 @@ pub const CardDef = struct {
         };
     }
 
+    pub fn getRank(self: CardDef) ?u8 {
+        for (self.labels) |lable| {
+            switch (lable) {
+                Label.rank => |r| return r,
+                else => { }
+            }
+        }
+        return null;
+    }
+
+    pub fn getAccuracy(self: CardDef) ?u8 {
+        for (self.labels) |lable| {
+            switch (lable) {
+                Label.accuracy => |r| return r,
+                else => { }
+            }
+        }
+        return null;
+    }
+
+    pub fn isAttack(self: CardDef) bool {
+        for (self.labels) |label| {
+            switch (label) {
+                Label.attack => return true,
+                else => { }
+            }
+        }
+        return false;
+    }
+
+    pub fn isOneTimeUse(self: CardDef) bool {
+        for (self.labels) |label| {
+            switch (label) {
+                Label.one_time_use => return true,
+                else => { }
+            }
+        }
+        return false;
+    }
+
     pub fn deinit(self: *CardDef) void {
         for (self.actions) |action| {
             action.deinit();
