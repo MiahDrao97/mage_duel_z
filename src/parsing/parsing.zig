@@ -31,6 +31,8 @@ pub const CardDef = struct {
     actions: []*ActionDefinitionStatement,
     allocator: Allocator,
 
+    const Error = Allocator.Error || error.InvalidCardDef;
+
     pub fn init(allocator: Allocator, labels: []Label, actions: []*ActionDefinitionStatement) CardDef {
         return .{
             .labels = labels,
@@ -86,5 +88,21 @@ pub const CardDef = struct {
         self.allocator.free(self.labels);
         self.allocator.free(self.actions);
         self.* = undefined;
+    }
+
+    pub fn toScope(self: CardDef, current_scope: *Scope) Error!*Scope {
+        const scope: *Scope = try current_scope.pushNew();
+        if (self.getRank()) |rank| {
+            scope.putValue("rank", .{
+                .label = .{
+                    .rank = rank
+                }
+            });
+        } else {
+            std.log.err("Cannot convert this card to a scope: Missing rank label.", .{});
+            return error.InvalidCardDef;
+        }
+        // TODO: the rest of these
+        return scope;
     }
 };
