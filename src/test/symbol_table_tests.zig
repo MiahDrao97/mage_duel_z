@@ -10,6 +10,7 @@ const ExpressionResult = parsing.ExpressionResult;
 const FunctionDef = parsing.FunctionDef;
 const SymbolTable = parsing.SymbolTable;
 const Symbol = parsing.Symbol;
+const IntResult = parsing.IntResult;
 
 fn testFunc(_: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
     if (args.len < 1) {
@@ -30,17 +31,9 @@ test "SymbolTable.putValue()" {
         };
         try symbol_table.putValue("$", symbol_value);
         if (symbol_table.getSymbol("$")) |symbol| {
-            switch (symbol) {
-                Symbol.value => |x| {
-                    switch (x.*) {
-                        ExpressionResult.integer => |i| {
-                            try testing.expect(i.value == 3);
-                        },
-                        else => return error.UnexpectedValue,
-                    }
-                },
-                else => return error.UnexpectedSymbol,
-            }
+            const x: *ExpressionResult = try symbol.unwrapValue();
+            const i: IntResult = try x.expectType(IntResult);
+            try testing.expect(i.value == 3);
         } else {
             return error.SymbolNotFound;
         }
@@ -60,17 +53,9 @@ test "SymbolTable.putValue()" {
 
         // should still work because this is defined on the outer scope
         if (symbol_table.getSymbol("$")) |symbol| {
-            switch (symbol) {
-                Symbol.value => |x| {
-                    switch (x.*) {
-                        ExpressionResult.integer => |i| {
-                            try testing.expect(i.value == 3);
-                        },
-                        else => return error.UnexpectedValue,
-                    }
-                },
-                else => return error.UnexpectedSymbol,
-            }
+            const x: *ExpressionResult = try symbol.unwrapValue();
+            const i: IntResult = try x.expectType(IntResult);
+            try testing.expect(i.value == 3);
         } else {
             return error.SymbolNotFound;
         }
@@ -105,10 +90,7 @@ test "SymbolTable.putFunc()" {
         const symbol_value: ?Symbol = symbol_table.getSymbol("testFunc");
         try testing.expect(symbol_value != null);
 
-        switch (symbol_value.?) {
-            Symbol.function => { },
-            else => return error.UnexpectedSymbol
-        }
+        _ = try symbol_value.?.unwrapFunction();
     }
     {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -124,33 +106,15 @@ test "SymbolTable.putFunc()" {
 
         const func_symbol: ?Symbol = symbol_table.getSymbol("testFunc");
         try testing.expect(func_symbol != null);
-
-        var func: FunctionDef = undefined;
-        switch (func_symbol.?) {
-            Symbol.function => |f| {
-                func = f;
-            },
-            else => return error.UnexpectedSymbol
-        }
+        const func: FunctionDef = try func_symbol.?.unwrapFunction();
 
         const value_symbol: ?Symbol = symbol_table.getSymbol("$");
         try testing.expect(value_symbol != null);
+        const val: *ExpressionResult = try value_symbol.?.unwrapValue();
 
-        var val: ExpressionResult = undefined;
-        switch (value_symbol.?) {
-            Symbol.value => |v| {
-                val = v.*;
-            },
-            else => return error.UnexpectedSymbol
-        }
-
-        var args: [1]ExpressionResult = [_]ExpressionResult { val };
+        var args: [1]ExpressionResult = [_]ExpressionResult { val.* };
         const result: ExpressionResult = try func(null, &args);
-        switch (result) {
-            ExpressionResult.integer => |i| {
-                try testing.expect(i.value == 3);
-            },
-            else => return error.UnexpectedValue,
-        }
+        const i: IntResult = try result.expectType(IntResult);
+        try testing.expect(i.value == 3);
     }
 }

@@ -427,6 +427,27 @@ pub const Symbol = union(enum) {
     value: *Result,
     function: FunctionDef,
     complex_object: *Scope,
+
+    pub fn unwrapValue(self: Symbol) error{UnwrapError}!*Result {
+        switch (self) {
+            Symbol.value => |v| return v,
+            else => return error.UnwrapError
+        }
+    }
+
+    pub fn unwrapFunction(self: Symbol) error{UnwrapError}!FunctionDef {
+        switch (self) {
+            Symbol.function => |f| return f,
+            else => return error.UnwrapError
+        }
+    }
+
+    pub fn unwrapObj(self: Symbol) error{UnwrapError}!*Scope {
+        switch (self) {
+            Symbol.complex_object => |o| return o,
+            else => return error.UnwrapError
+        }
+    }
 };
 
 pub const Scope = struct {
