@@ -11,7 +11,7 @@ const FunctionDef = parsing.FunctionDef;
 const SymbolTable = parsing.SymbolTable;
 const Symbol = parsing.Symbol;
 
-fn testFunc(args: []ExpressionResult) !ExpressionResult {
+fn testFunc(_: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
     if (args.len < 1) {
         return ExpressionResult.void;
     }
@@ -145,7 +145,7 @@ test "SymbolTable.putFunc()" {
         }
 
         var args: [1]ExpressionResult = [_]ExpressionResult { val };
-        const result: ExpressionResult = try func(&args);
+        const result: ExpressionResult = try func(null, &args);
         switch (result) {
             ExpressionResult.integer => |i| {
                 try testing.expect(i.value == 3);

@@ -384,6 +384,7 @@ pub const Label = union(enum) {
     attack: void,
     rank: u8,
     accuracy: u8,
+    // TODO: AOE
 
     const rank_values: []const u8 = &[_]u8 { 'a', 'b', 'c', 's' };
 
@@ -420,7 +421,7 @@ pub const Label = union(enum) {
     }
 };
 
-pub const FunctionDef = *const fn ([]Result) anyerror!Result;
+pub const FunctionDef = *const fn (?*anyopaque, []Result) anyerror!Result;
 
 pub const Symbol = union(enum) {
     value: *Result,

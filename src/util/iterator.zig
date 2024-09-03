@@ -17,7 +17,7 @@ pub fn Iterator(comptime T: type) type {
                 return null;
             }
             
-            const item: T = self.inner[@bitCast(self.i)];
+            const item: T = self.inner[ @bitCast(self.i) ];
             self.i += 1;
 
             return item;

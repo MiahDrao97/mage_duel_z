@@ -42,8 +42,8 @@ pub const CardDef = struct {
     }
 
     pub fn getRank(self: CardDef) ?u8 {
-        for (self.labels) |lable| {
-            switch (lable) {
+        for (self.labels) |label| {
+            switch (label) {
                 Label.rank => |r| return r,
                 else => { }
             }
@@ -52,8 +52,8 @@ pub const CardDef = struct {
     }
 
     pub fn getAccuracy(self: CardDef) ?u8 {
-        for (self.labels) |lable| {
-            switch (lable) {
+        for (self.labels) |label| {
+            switch (label) {
                 Label.accuracy => |r| return r,
                 else => { }
             }
@@ -93,16 +93,32 @@ pub const CardDef = struct {
     pub fn toScope(self: CardDef, current_scope: *Scope) Error!*Scope {
         const scope: *Scope = try current_scope.pushNew();
         if (self.getRank()) |rank| {
-            scope.putValue("rank", .{
+            try scope.putValue("rank", .{
                 .label = .{
                     .rank = rank
                 }
             });
         } else {
             std.log.err("Cannot convert this card to a scope: Missing rank label.", .{});
-            return error.InvalidCardDef;
+            return Error.InvalidCardDef;
         }
-        // TODO: the rest of these
+
+        if (self.isAttack()) {
+            if (self.getAccuracy()) |acc| {
+                try scope.putValue("accuracy", .{
+                    .label = .{
+                        .accuracy = acc
+                    }
+                });
+            } else {
+                // for now, we're ignore AOE
+                std.log.err("Cannot convert this card to a scope: Attack is missing accuracy.", .{});
+                return Error.InvalidCardDef;
+            }
+        }
+
+        // TODO: the rest of these:
+        // - getActionCost(1)
         return scope;
     }
 };
