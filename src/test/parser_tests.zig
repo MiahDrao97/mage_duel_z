@@ -6,6 +6,10 @@ const Parser = parsing.Parser;
 const Tokenizer = parsing.Tokenizer;
 const Token = parsing.Token;
 const CardDef = parsing.CardDef;
+const Scope = parsing.Scope;
+const Symbol = parsing.Symbol;
+const FunctionDef = parsing.FunctionDef;
+const ExpressionResult = parsing.ExpressionResult;
 
 test {
     {

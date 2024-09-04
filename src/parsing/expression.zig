@@ -382,6 +382,7 @@ pub const ListResult = struct {
 pub const Label = union(enum) {
     one_time_use: void,
     attack: void,
+    monster: void,
     rank: u8,
     accuracy: u8,
     // TODO: AOE
@@ -451,9 +452,10 @@ pub const Symbol = union(enum) {
 };
 
 pub const Scope = struct {
-    outer: ?*Scope,
+    outer: ?*Scope = null,
     allocator: Allocator,
     symbols: StringHashMap(Symbol),
+    this_ptr: ?*anyopaque = null,
 
     pub fn new(allocator: Allocator, outer: ?*Scope) Allocator.Error!*Scope {
         const ptr: *Scope = try allocator.create(Scope);
@@ -461,6 +463,16 @@ pub const Scope = struct {
             .symbols = StringHashMap(Symbol).init(allocator),
             .allocator = allocator,
             .outer = outer
+        };
+        return ptr;
+    }
+
+    pub fn newObj(allocator: Allocator, this_ptr: *anyopaque) Allocator.Error!*Scope {
+        const ptr: *Scope =  try allocator.create(Scope);
+        ptr.* = .{
+            .symbols = StringHashMap(Symbol).init(allocator),
+            .allocator = allocator,
+            .this_ptr = this_ptr
         };
         return ptr;
     }
@@ -558,13 +570,6 @@ pub const SymbolTable = struct {
 
     pub fn putFunc(self: SymbolTable, name: []const u8, func: FunctionDef) Allocator.Error!void {
         try self.current_scope.putFunc(name, func);
-    }
-
-    /// Use this to create a complex object to define functions and properties on.
-    /// It will properly be linked to the current scope.
-    /// This differs from `newScope()` because the current scope of doesn't change from this call.
-    pub fn newObject(self: SymbolTable) Allocator.Error!*Scope {
-        return try self.current_scope.pushNew();
     }
 
     pub fn putObj(self: SymbolTable, name: []const u8, obj: *Scope) Allocator.Error!void {

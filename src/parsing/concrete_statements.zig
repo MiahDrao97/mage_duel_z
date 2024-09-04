@@ -69,7 +69,8 @@ pub const FunctionCall = struct {
             args_list[i] = try arg.evaluate(symbol_table);
         }
 
-        _ = try function_def(null, args_list);
+        const member_ptr: ?*anyopaque = symbol_table.current_scope.this_ptr;
+        _ = try function_def(member_ptr, args_list);
     }
 
     fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
@@ -150,8 +151,7 @@ pub const DamageStatement = struct {
                         Symbol.function => |f| {
                             var args: [1]Result = [_]Result { damage_transaction_eval };
                             // should be a void function 
-                            // TODO: pass in "self" instead of null
-                            _ = try f(null, &args);
+                            _ = try f(o.this_ptr, &args);
                         },
                         else => return error.FunctionNotFound
                     }

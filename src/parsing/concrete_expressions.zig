@@ -1029,7 +1029,7 @@ pub const AccessorExpression = struct {
         const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
 
         // we need at least one '.' for this to be a full accessor chain
-        if (self.accessor_chain < 2) {
+        if (self.accessor_chain.len < 2) {
             return Error.InvalidAccessorChain;
         }
 

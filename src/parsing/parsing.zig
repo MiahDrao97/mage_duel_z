@@ -73,6 +73,16 @@ pub const CardDef = struct {
         return false;
     }
 
+    pub fn isMonster(self: CardDef) bool {
+        for (self.labels) |label| {
+            switch (label) {
+                Label.monster => return true,
+                else => { }
+            }
+        }
+        return false;
+    }
+
     pub fn isOneTimeUse(self: CardDef) bool {
         for (self.labels) |label| {
             switch (label) {
@@ -92,8 +102,47 @@ pub const CardDef = struct {
         self.* = undefined;
     }
 
-    pub fn toScope(self: CardDef, current_scope: *Scope) Error!*Scope {
-        const scope: *Scope = try current_scope.pushNew();
+    fn getActionCost(this_ptr: *anyopaque, args: []ExpressionResult) !ExpressionResult {
+        if (args.len != 1) {
+            std.log.err("Expected 1 argument, but received {d}.", .{ args.len });
+            return error.ArgumentCountMismatch;
+        }
+
+        const index: IntResult = args[0].expectType(IntResult) catch {
+            std.log.err("Expected arg 0 to be an integer.", .{});
+            return error.ArgumentFormatMismatch;
+        };
+
+        const self: *CardDef = @ptrCast(@alignCast(this_ptr));
+        if (index.value < 0 or index.value > self.actions.len) {
+            std.log.err("Arg 0 is out of range (was '{}') => Values allowed to range from 0 to {d}.", .{
+                index.value,
+                self.actions.len - 1
+            });
+            return error.ArgumentOutOfRange;
+        }
+        
+        const action_def: ActionDefinitionStatement = self.actions[ @intCast(index.value) ];
+        switch (action_def.action_cost) {
+            ActionDefinitionStatement.ActionCostExpr.flat => |f| {
+                return .{
+                    .integer = .{
+                        .value = @intCast(f.val)
+                    }
+                };
+            },
+            ActionDefinitionStatement.ActionCostExpr.dynamic => |d| {
+                const empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
+                return d.amount.evaluate(empty_sym_table).as(IntResult) orelse {
+                    std.log.err("Invalid amount expression on dynamic action cost expression.");
+                    return error.InvalidDynamicAmountExpr;
+                };
+            }
+        }
+    }
+
+    pub fn toScope(self: *CardDef, allocator: Allocator) Error!*Scope {
+        const scope: *Scope = try Scope.newObj(allocator, self);
         if (self.getRank()) |rank| {
             try scope.putValue("rank", .{
                 .label = .{
@@ -119,8 +168,12 @@ pub const CardDef = struct {
             }
         }
 
-        // TODO: the rest of these:
-        // - getActionCost(1)
+        if (!self.isMonster()) {
+            try scope.putFunc("getActionCost", &getActionCost);
+        } else {
+            // TODO: Monster-related functions
+        }
+        
         return scope;
     }
 };
