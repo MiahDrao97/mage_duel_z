@@ -587,7 +587,7 @@ pub const AdditiveExpression = struct {
             },
             Result.list => |lh_list| {
                 try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
-                if (rh_result.isList()) |rh_list| {
+                if (rh_result.as(ListResult)) |rh_list| {
                     var new_list: ListResult = undefined;
                     if (self.op.stringEquals("+")) {
                         new_list = try lh_list.append(rh_list);

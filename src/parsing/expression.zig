@@ -48,10 +48,6 @@ pub const Result = union(enum) {
         return self.as(T) orelse Error.UnexpectedType;
     }
 
-    pub fn isList(self: Result) ?ListResult {
-        return self.as(ListResult);
-    }
-
     pub const Context = struct {
         pub fn hash(_: Context, k: Result) u32 {
             var hash_result: u64 = 0;
@@ -143,7 +139,8 @@ pub const Result = union(enum) {
                 },
                 Result.list => |list| {
                     result_type = 7;
-                    // TODO: do we wanna hash each item because we're not evaluating the contents
+                    // TODO: do we wanna hash each item?
+                    // Right now, we're not evaluating the contents...
                     const ptr: usize = @intFromPtr(list.items.ptr);
                     const bytes: [@sizeOf(usize)]u8 = std.mem.toBytes(ptr);
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
@@ -545,6 +542,7 @@ pub const Scope = struct {
 pub const SymbolTable = struct {
     allocator: Allocator,
     current_scope: *Scope,
+    player_interface: ?PlayerInterface = null,
 
     pub fn new(allocator: Allocator) Allocator.Error!SymbolTable {
         return .{
@@ -590,14 +588,9 @@ pub const SymbolTable = struct {
     }
 
     pub fn getPlayerChoice(self: SymbolTable, amount: u16, pool: []const Result, exact: bool) !Result {
-        _ = &self;
-        _ = &amount;
-        _ = &pool;
-        _ = &exact;
-        if (!exact) {
-            return error.SomeOtherError;
+        if (self.player_interface) |p| {
+            return try p.getPlayerChoice(amount, pool, exact);
         }
-
         return error.NotImplemented;
     }
 
@@ -633,6 +626,15 @@ const InnerError = error {
 };
 
 pub const Error = InnerError || ParseTokenError || Allocator.Error;
+
+pub const PlayerInterface = struct {
+    this_ptr: *anyopaque,
+    get_player_choice: *const fn (*anyopaque, u16, []const Result, bool) anyerror!Result,
+
+    pub fn getPlayerChoice(self: PlayerInterface, amount: u16, pool: []const Result, exact: bool) !Result {
+        return try self.get_player_choice(self.this_ptr, amount, pool, exact);
+    }
+};
 
 pub const Expression = struct {
     ptr: *anyopaque,

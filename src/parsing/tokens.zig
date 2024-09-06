@@ -382,17 +382,12 @@ pub const Token = union(enum) {
 };
 
 pub const TokenIterator = struct {
-    allocator: Allocator,
-    internal_iter: *Iterator(Token),
+    internal_iter: Iterator(Token),
 
     pub fn from(allocator: Allocator, tokens: []Token) Allocator.Error!TokenIterator {
-        const iter_ptr: *Iterator(Token) = try allocator.create(Iterator(Token));
-        iter_ptr.* = Iterator(Token).from(tokens);
+        const iter: Iterator(Token) = try Iterator(Token).from(allocator, tokens);
 
-        return .{
-            .allocator = allocator,
-            .internal_iter = iter_ptr
-        };
+        return .{ .internal_iter = iter };
     }
 
     pub fn next(self: TokenIterator) ?Token {
@@ -456,7 +451,7 @@ pub const TokenIterator = struct {
     }
 
     pub fn deinit(self: *TokenIterator) void {
-        self.allocator.destroy(self.internal_iter);
+        self.internal_iter.deinit();
         self.* = undefined;
     }
 };

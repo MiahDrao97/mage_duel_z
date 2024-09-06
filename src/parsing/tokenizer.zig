@@ -37,7 +37,9 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     errdefer Token.deinitAll(tokens_list.items);
     defer tokens_list.deinit();
 
-    var tokens_iter = Iterator(u8).from(script);
+    var tokens_iter = try Iterator(u8).from(self.allocator, script);
+    defer tokens_iter.deinit();
+
     var next_first: ?u8 = null;
 
     while (true) {
