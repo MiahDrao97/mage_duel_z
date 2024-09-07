@@ -7,42 +7,59 @@ pub fn Iterator(comptime T: type) type {
         const Self = @This();
 
         ptr:            *anyopaque,
+        v_table:        VTable,
         allocator:      Allocator,
-        next_fn:        *const fn (*anyopaque) ?T,
-        set_index_fn:   *const fn (*anyopaque, usize) void,
-        reset_fn:       *const fn (*anyopaque) void,
-        scroll_fn:      *const fn (*anyopaque, isize) void,
-        get_len_fn:     *const fn (*anyopaque) usize,
-        deinit_fn:      *const fn (*anyopaque) void,
+
+        pub const VTable = struct {
+            next_fn:        *const fn (*anyopaque) ?T,
+            set_index_fn:   *const fn (*anyopaque, usize) void,
+            reset_fn:       *const fn (*anyopaque) void,
+            scroll_fn:      *const fn (*anyopaque, isize) void,
+            clone_fn:       *const fn (*anyopaque) Allocator.Error!Iterator(T),
+            get_len_fn:     *const fn (*anyopaque) usize,
+            deinit_fn:      *const fn (*anyopaque) void,
+        };
 
         /// Return next element or null if iteration is over.
         pub fn next(self: Self) ?T {
-            return self.next_fn(self.ptr);
+            return self.v_table.next_fn(self.ptr);
         }
 
         /// Set the index to any place
         pub fn setIndex(self: Self, index: usize) void {
-            self.set_index_fn(self.ptr, index);
+            self.v_table.set_index_fn(self.ptr, index);
         }
 
         /// Set the index back to 0.
         pub fn reset(self: Self) void {
-            self.reset_fn(self.ptr);
+            self.v_table.reset_fn(self.ptr);
         }
 
         /// Scroll forward or backward x
         pub fn scroll(self: Self, amount: isize) void {
-            self.scroll_fn(self.ptr, amount);
+            self.v_table.scroll_fn(self.ptr, amount);
+        }
+
+        /// Produces a clone of `Iterator(T)` (note that it is not reset).
+        pub fn clone(self: Self) Allocator.Error!Iterator(T) {
+            return try self.v_table.clone_fn(self.ptr);
+        }
+
+        /// Produces a clone of `Iterator(T)` that is reset.
+        pub fn cloneReset(self: Self) Allocator.Error!Iterator(T) {
+            var c = try self.clone();
+            c.reset();
+            return c;
         }
 
         /// Get the length of the iterator
         pub fn len(self: Self) usize {
-            return self.get_len_fn(self.ptr);
+            return self.v_table.get_len_fn(self.ptr);
         }
 
         /// Free the underlying pointer
         pub fn deinit(self: *Self) void {
-            self.deinit_fn(self.ptr);
+            self.v_table.deinit_fn(self.ptr);
             self.* = undefined;
         }
 
@@ -85,6 +102,26 @@ pub fn Iterator(comptime T: type) type {
                     }
                 }
 
+                fn implClone(impl: *anyopaque) Allocator.Error!Self {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    const ptr_cpy: *InnerSelf = try self.allocator.create(InnerSelf);
+                    ptr_cpy.* = self.*;
+
+                    return .{
+                        .ptr = ptr_cpy,
+                        .allocator = self.allocator,
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        },
+                    };
+                }
+
                 fn implLen(impl: *anyopaque) usize {
                     const self: *InnerSelf = @ptrCast(@alignCast(impl));
                     return self.inner.len;
@@ -99,12 +136,15 @@ pub fn Iterator(comptime T: type) type {
                     return Self {
                         .ptr = impl_ptr,
                         .allocator = impl_ptr.allocator,
-                        .next_fn = &implNext,
-                        .reset_fn = &implReset,
-                        .set_index_fn = &implSetIndex,
-                        .scroll_fn = &implScroll,
-                        .get_len_fn = &implLen,
-                        .deinit_fn = &implDeinit
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        }
                     };
                 }
             };
@@ -154,6 +194,18 @@ pub fn Iterator(comptime T: type) type {
                     self.inner_iter.scroll(amount);
                 }
 
+                fn implClone(impl: *anyopaque) Allocator.Error!Iterator(TOther) {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    const c_inner: Self = try self.inner_iter.clone();
+                    var c = InnerSelf {
+                        .inner_iter = c_inner,
+                        .select_fn = self.select_fn,
+                        .allocator = self.allocator
+                    };
+
+                    return c.iter();
+                }
+
                 fn implLen(impl: *anyopaque) usize {
                     const self: *InnerSelf = @ptrCast(@alignCast(impl));
                     return self.inner_iter.len();
@@ -169,12 +221,15 @@ pub fn Iterator(comptime T: type) type {
                     return Iterator(TOther) {
                         .ptr = impl_ptr,
                         .allocator = impl_ptr.allocator,
-                        .next_fn = &implNext,
-                        .reset_fn = &implReset,
-                        .set_index_fn = &implSetIndex,
-                        .scroll_fn = &implScroll,
-                        .get_len_fn = &implLen,
-                        .deinit_fn = &implDeinit
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        }
                     };
                 }
             };
