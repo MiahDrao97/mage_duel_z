@@ -2,6 +2,8 @@ const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
+/// Generic iterator interface for type `T`.
+/// Use `from()` or `fromSliceOwned()` to create an instance from a slice.
 pub fn Iterator(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -19,6 +21,8 @@ pub fn Iterator(comptime T: type) type {
             get_len_fn:     *const fn (*anyopaque) usize,
             deinit_fn:      *const fn (*anyopaque) void,
         };
+
+        var empty_instance: ?EmptyIterator = null;
 
         /// Return next element or null if iteration is over.
         pub fn next(self: Self) ?T {
@@ -62,95 +66,177 @@ pub fn Iterator(comptime T: type) type {
             self.v_table.deinit_fn(self.ptr);
         }
 
+        const EmptyIterator = struct {
+            allocator: Allocator,
+
+            const InnerSelf = @This();
+
+            fn implNext(_: *anyopaque) ?T { return null; }
+
+            fn implSetIndex(_: *anyopaque, _: usize) void { }
+
+            fn implReset(_: *anyopaque) void { }
+
+            fn implScroll(_: *anyopaque, _: isize) void { }
+
+            fn implClone(impl: *anyopaque) Allocator.Error!Self {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                return self.iter();
+            }
+
+            fn implLen(_: *anyopaque) usize { return 0; }
+
+            fn implDeinit(_: *anyopaque) void { }
+
+            pub fn iter(impl_ptr: *InnerSelf) Self {
+                return Self {
+                    .ptr = impl_ptr,
+                    .allocator = impl_ptr.allocator,
+                    .v_table = .{
+                        .next_fn = &implNext,
+                        .reset_fn = &implReset,
+                        .set_index_fn = &implSetIndex,
+                        .scroll_fn = &implScroll,
+                        .clone_fn = &implClone,
+                        .get_len_fn = &implLen,
+                        .deinit_fn = &implDeinit
+                    }
+                };
+            }
+        };
+
+        const SliceIterator = struct {
+            i: isize = 0,
+            inner: []const T,
+            owns_slice: bool = false,
+            on_deinit: ?*const fn ([]T) void = null,
+            allocator: Allocator,
+
+            const InnerSelf = @This();
+
+            fn implNext(impl: *anyopaque) ?T {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                if (self.i < 0 or self.i >= self.inner.len) {
+                    return null;
+                }
+                
+                const item: T = self.inner[ @bitCast(self.i) ];
+                self.i += 1;
+
+                return item;
+            }
+
+            fn implSetIndex(impl: *anyopaque, index: usize) void {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                self.i = @bitCast(index);
+            }
+
+            fn implReset(impl: *anyopaque) void {
+                implSetIndex(impl, 0);
+            }
+
+            fn implScroll(impl: *anyopaque, amount: isize) void {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                self.i += amount;
+                if (self.i < 0) {
+                    self.i = 0;
+                }
+            }
+
+            fn implClone(impl: *anyopaque) Allocator.Error!Self {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                const ptr_cpy: *InnerSelf = try self.allocator.create(InnerSelf);
+                ptr_cpy.* = self.*;
+
+                return .{
+                    .ptr = ptr_cpy,
+                    .allocator = self.allocator,
+                    .v_table = .{
+                        .next_fn = &implNext,
+                        .reset_fn = &implReset,
+                        .set_index_fn = &implSetIndex,
+                        .scroll_fn = &implScroll,
+                        .clone_fn = &implClone,
+                        .get_len_fn = &implLen,
+                        .deinit_fn = &implDeinit
+                    },
+                };
+            }
+
+            fn implLen(impl: *anyopaque) usize {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                return self.inner.len;
+            }
+
+            fn implDeinit(impl: *anyopaque) void {
+                const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                if (self.owns_slice) {
+                    if (self.on_deinit) |on_deinit_fn| {
+                        // const-cast here since the deinit function can't possibly take in a []const T slice
+                        on_deinit_fn(@constCast(self.inner));
+                    }
+                    self.allocator.free(self.inner);
+                }
+                self.allocator.destroy(self);
+            }
+
+            pub fn iter(impl_ptr: *InnerSelf) Self {
+                return Self {
+                    .ptr = impl_ptr,
+                    .allocator = impl_ptr.allocator,
+                    .v_table = .{
+                        .next_fn = &implNext,
+                        .reset_fn = &implReset,
+                        .set_index_fn = &implSetIndex,
+                        .scroll_fn = &implScroll,
+                        .clone_fn = &implClone,
+                        .get_len_fn = &implLen,
+                        .deinit_fn = &implDeinit
+                    }
+                };
+            }
+        };
+
+        /// Empty iterator with no elements.
+        /// 
+        /// Note that this empty instance is a singleton.
+        /// `clone()` will not actually create a new instance, but just returns this one.
+        /// `deinit()` will not do anything either, so there is no need to call it.
+        pub fn empty(allocator: Allocator) Self {
+            if (empty_instance != null) {
+                return empty_instance.?.iter();
+            }
+
+            empty_instance = .{ .allocator = allocator };
+            return empty_instance.?.iter();
+        }
+
         /// The resulting iterator does not own `slice`.
         /// Allocator is used to allocate a pointer to the impementation of `Iterator(T)`.
         pub fn from(allocator: Allocator, slice: []const T) Allocator.Error!Self {
-            const SliceIterator = struct {
-                i: isize = 0,
-                inner: []const T,
-                allocator: Allocator,
-
-                const InnerSelf = @This();
-
-                fn implNext(impl: *anyopaque) ?T {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    if (self.i < 0 or self.i >= self.inner.len) {
-                        return null;
-                    }
-                    
-                    const item: T = self.inner[ @bitCast(self.i) ];
-                    self.i += 1;
-
-                    return item;
-                }
-
-                fn implSetIndex(impl: *anyopaque, index: usize) void {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    self.i = @bitCast(index);
-                }
-
-                fn implReset(impl: *anyopaque) void {
-                    implSetIndex(impl, 0);
-                }
-
-                fn implScroll(impl: *anyopaque, amount: isize) void {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    self.i += amount;
-                    if (self.i < 0) {
-                        self.i = 0;
-                    }
-                }
-
-                fn implClone(impl: *anyopaque) Allocator.Error!Self {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    const ptr_cpy: *InnerSelf = try self.allocator.create(InnerSelf);
-                    ptr_cpy.* = self.*;
-
-                    return .{
-                        .ptr = ptr_cpy,
-                        .allocator = self.allocator,
-                        .v_table = .{
-                            .next_fn = &implNext,
-                            .reset_fn = &implReset,
-                            .set_index_fn = &implSetIndex,
-                            .scroll_fn = &implScroll,
-                            .clone_fn = &implClone,
-                            .get_len_fn = &implLen,
-                            .deinit_fn = &implDeinit
-                        },
-                    };
-                }
-
-                fn implLen(impl: *anyopaque) usize {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    return self.inner.len;
-                }
-
-                fn implDeinit(impl: *anyopaque) void {
-                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    self.allocator.destroy(self);
-                }
-
-                pub fn iter(impl_ptr: *InnerSelf) Self {
-                    return Self {
-                        .ptr = impl_ptr,
-                        .allocator = impl_ptr.allocator,
-                        .v_table = .{
-                            .next_fn = &implNext,
-                            .reset_fn = &implReset,
-                            .set_index_fn = &implSetIndex,
-                            .scroll_fn = &implScroll,
-                            .clone_fn = &implClone,
-                            .get_len_fn = &implLen,
-                            .deinit_fn = &implDeinit
-                        }
-                    };
-                }
-            };
             const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
 
             iter_ptr.* = .{
                 .inner = slice,
+                .allocator = allocator
+            };
+
+            return iter_ptr.iter();
+        }
+
+        /// The resulting iterator owns `slice`.
+        /// Optionally pass in a function to be called when this iterator is de-initialized (namely, deinit the elements within the slice).
+        pub fn fromSliceOwned(
+            allocator: Allocator,
+            slice: []const T,
+            on_deinit: ?*const fn ([]T) void
+        ) Allocator.Error!Self {
+            const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
+
+            iter_ptr.* = .{
+                .inner = slice,
+                .owns_slice = true,
+                .on_deinit = on_deinit,
                 .allocator = allocator
             };
 
@@ -248,7 +334,7 @@ pub fn Iterator(comptime T: type) type {
         /// `next()` returns the next element that fulfills the condition on the passed-in `filter` or `null` if no more elements are present or fulfill the condition.
         /// 
         /// Note that `setIndex()` and `scroll()` have no effect since all indexing is lost after calling `where()`.
-        /// `len()` returns the length of the inner iterator, but that does not gaurantee that this new iterator will return that many elements.
+        /// `len()` returns the length of the inner iterator, but that does not guarantee that this new iterator will return that many elements.
         /// However, it can serve to give a max length in a buffer scenario.
         /// The inner iterator can always be reset with `reset()`.
         /// 
@@ -340,7 +426,7 @@ pub fn Iterator(comptime T: type) type {
 
         /// Pass in a buffer to catch the full enumeration of `self`.
         /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
-        pub fn populateBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!void {
+        pub fn enumerateToBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!void {
             if (buf.len < self.len()) {
                 return error.NoSpaceLeft;
             }

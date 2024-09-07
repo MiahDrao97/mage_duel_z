@@ -106,3 +106,25 @@ test "toOwnedSlice" {
     try testing.expect(asSlice.len == 1);
     try testing.expect(asSlice[0] == 2);
 }
+test "empty" {
+    var iter = Iterator(u8).empty(testing.allocator);
+
+    try testing.expect(iter.len() == 0);
+    try testing.expect(iter.next() == null);
+
+    var next_iter = try iter.where(&isEven);
+    defer next_iter.deinit(); // <= we do need to deinit() this one because we allocated a new pointer
+
+    try testing.expect(next_iter.len() == 0);
+    try testing.expect(next_iter.next() == null);
+
+    var next_empty = Iterator(u8).empty(testing.allocator);
+
+    try testing.expect(next_empty.len() == 0);
+    try testing.expect(next_empty.next() == null);
+
+    var next_empty_2 = try iter.cloneReset();
+
+    try testing.expect(next_empty_2.len() == 0);
+    try testing.expect(next_empty_2.next() == null);
+}
