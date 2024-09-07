@@ -60,7 +60,6 @@ pub fn Iterator(comptime T: type) type {
         /// Free the underlying pointer
         pub fn deinit(self: *Self) void {
             self.v_table.deinit_fn(self.ptr);
-            self.* = undefined;
         }
 
         /// The resulting iterator does not own `slice`.
@@ -158,7 +157,8 @@ pub fn Iterator(comptime T: type) type {
             return iter_ptr.iter();
         }
 
-        /// Transforms the result from `other_iter` into `TOther` on `next()`.
+        /// Transforms this iterator into `Iterator(TOther)`, using the function passed in `selector`.
+        /// 
         /// This new `Iterator(TOther)` owns `other_iter`, so you only need to call `deinit()` on this one.
         pub fn select(
             other_iter: Self,
@@ -242,6 +242,147 @@ pub fn Iterator(comptime T: type) type {
             };
 
             return iter_ptr.iter();
+        }
+
+        /// Filters the iteration of `other_iter`.
+        /// `next()` returns the next element that fulfills the condition on the passed-in `filter` or `null` if no more elements are present or fulfill the condition.
+        /// 
+        /// Note that `setIndex()` and `scroll()` have no effect since all indexing is lost after calling `where()`.
+        /// `len()` returns the length of the inner iterator, but that does not gaurantee that this new iterator will return that many elements.
+        /// However, it can serve to give a max length in a buffer scenario.
+        /// The inner iterator can always be reset with `reset()`.
+        /// 
+        /// This new `Iterator(T)` owns `other_iter`, so you only need to call `deinit()` on this one.
+        pub fn where(other_iter: Self, filter: *const fn (T) bool) Allocator.Error!Self {
+            const WhereIterator = struct {
+                const InnerSelf = @This();
+
+                filter: *const fn (T) bool,
+                inner_iter: Self,
+                allocator: Allocator,
+
+                fn implNext(impl: *anyopaque) ?T {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    while (self.inner_iter.next()) |x| {
+                        if (self.filter(x)) {
+                            return x;
+                        }
+                    }
+                    return null;
+                }
+
+                fn implSetIndex(_: *anyopaque, _: usize) void { }
+
+                fn implReset(impl: *anyopaque) void {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    self.inner_iter.reset();
+                }
+
+                fn implScroll(_: *anyopaque, _: isize) void { }
+
+                fn implClone(impl: *anyopaque) Allocator.Error!Self {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    const ptr_cpy: *InnerSelf = try self.allocator.create(InnerSelf);
+                    ptr_cpy.* = self.*;
+
+                    return Self {
+                        .ptr = ptr_cpy,
+                        .allocator = self.allocator,
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        },
+                    };
+                }
+
+                fn implLen(impl: *anyopaque) usize {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    return self.inner_iter.len();
+                }
+
+                fn implDeinit(impl: *anyopaque) void {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    self.inner_iter.deinit();
+                    self.allocator.destroy(self);
+                }
+
+                pub fn iter(impl_ptr: *InnerSelf) Self {
+                    return Self {
+                        .ptr = impl_ptr,
+                        .allocator = impl_ptr.allocator,
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        },
+                    };
+                }
+            };
+            const iter_ptr: *WhereIterator = try other_iter.allocator.create(WhereIterator);
+
+            iter_ptr.* = .{
+                .allocator = other_iter.allocator,
+                .filter = filter,
+                .inner_iter = other_iter
+            };
+
+            return iter_ptr.iter();
+        }
+
+        /// Pass in a buffer to catch the full enumeration of `self`.
+        /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
+        pub fn populateBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!void {
+            if (buf.len < self.len()) {
+                return error.NoSpaceLeft;
+            }
+
+            var i: usize = 0;
+            while (self.next()) |x| {
+                buf[i] = x;
+                i += 1;
+            }
+        }
+
+        /// Enumerates through all of `self` and deinits when finished.
+        /// Caller owns the resulting slice.
+        /// In the event of an error, `self` will not be destroyed.
+        pub fn toOwnedSlice(self: *Self) Allocator.Error![]T {
+            var buf: []T = try self.allocator.alloc(T, self.len());
+
+            var i: usize = 0;
+            while (self.next()) |x| {
+                buf[i] = x;
+                i += 1;
+            }
+
+            // just the right size: return our buffer
+            if (i == self.len()) {
+                return buf;
+            }
+
+            // pair buf down to final slice
+            const final: []T = self.allocator.alloc(T, i) catch |err| {
+                self.allocator.free(buf);
+                return err;
+            };
+
+            for (0..i) |j| {
+                final[j] = buf[j];
+            }
+
+            self.allocator.free(buf);
+            self.deinit();
+
+            return final;
         }
     };
 }
