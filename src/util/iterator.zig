@@ -7,19 +7,19 @@ pub fn Iterator(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        ptr:            *anyopaque,
-        v_table:        VTable,
-        allocator:      Allocator,
+        ptr:                *anyopaque,
+        v_table:            VTable,
+        allocator:          Allocator,
 
         pub const VTable = struct {
-            next_fn:        *const fn (*anyopaque) ?T,
-            set_index_fn:   *const fn (*anyopaque, usize) void,
-            reset_fn:       *const fn (*anyopaque) void,
-            scroll_fn:      *const fn (*anyopaque, isize) void,
-            has_index_fn:   *const fn (*anyopaque) bool,
-            clone_fn:       *const fn (*anyopaque) Allocator.Error!Iterator(T),
-            get_len_fn:     *const fn (*anyopaque) usize,
-            deinit_fn:      *const fn (*anyopaque) void,
+            next_fn:            *const fn (*anyopaque) ?T,
+            set_index_fn:       *const fn (*anyopaque, usize) void,
+            reset_fn:           *const fn (*anyopaque) void,
+            scroll_fn:          *const fn (*anyopaque, isize) void,
+            has_indexing_fn:    *const fn (*anyopaque) bool,
+            clone_fn:           *const fn (*anyopaque) Allocator.Error!Iterator(T),
+            get_len_fn:         *const fn (*anyopaque) usize,
+            deinit_fn:          *const fn (*anyopaque) void,
         };
 
         var empty_instance: ?EmptyIterator = null;
@@ -34,23 +34,23 @@ pub fn Iterator(comptime T: type) type {
             self.v_table.set_index_fn(self.ptr, index);
         }
 
-        /// Set the index back to 0.
+        /// Reset the iterator to its first element.
         pub fn reset(self: Self) void {
             self.v_table.reset_fn(self.ptr);
         }
 
-        /// Scroll forward or backward x
+        /// Scroll forward or backward x.
         pub fn scroll(self: Self, amount: isize) void {
             self.v_table.scroll_fn(self.ptr, amount);
         }
 
         /// Determine if this iterator can use `scroll()` or `setIndex()`.
         /// 
-        /// Indexing is only available when this iterator can enumerate through each element of its underlying slice.
+        /// Indexing is only available when this iterator returns the same number of elements as its `len()`.
         /// When the returned set of elements varies from the original length (like filtered down from `where()` or increased with `concat()`),
         /// this is no longer possible.
-        pub fn hasIndex(self: Self) bool {
-            return self.v_table.has_index_fn(self.ptr);
+        pub fn hasIndexing(self: Self) bool {
+            return self.v_table.has_indexing_fn(self.ptr);
         }
 
         /// Produces a clone of `Iterator(T)` (note that it is not reset).
@@ -65,7 +65,10 @@ pub fn Iterator(comptime T: type) type {
             return c;
         }
 
-        /// Get the length of the iterator
+        /// Get the length of the iterator.
+        /// 
+        /// If `hasIndexing()` is true, then the `Iterator(T)` is expected to return this many items.
+        /// Otherwise, `len()` represents a maximum length that the `Iterator(T)` can return.
         pub fn len(self: Self) usize {
             return self.v_table.get_len_fn(self.ptr);
         }
@@ -88,7 +91,7 @@ pub fn Iterator(comptime T: type) type {
 
             fn implScroll(_: *anyopaque, _: isize) void { }
 
-            fn implHasIndex(_: *anyopaque) bool { return false; }
+            fn implHasIndexing(_: *anyopaque) bool { return false; }
 
             fn implClone(impl: *anyopaque) Allocator.Error!Self {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
@@ -108,7 +111,7 @@ pub fn Iterator(comptime T: type) type {
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
                         .scroll_fn = &implScroll,
-                        .has_index_fn = &implHasIndex,
+                        .has_indexing_fn = &implHasIndexing,
                         .clone_fn = &implClone,
                         .get_len_fn = &implLen,
                         .deinit_fn = &implDeinit
@@ -155,7 +158,7 @@ pub fn Iterator(comptime T: type) type {
                 }
             }
 
-            fn implHasIndex(_: *anyopaque) bool { return true; }
+            fn implHasIndexing(_: *anyopaque) bool { return true; }
 
             fn implClone(impl: *anyopaque) Allocator.Error!Self {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
@@ -170,7 +173,7 @@ pub fn Iterator(comptime T: type) type {
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
                         .scroll_fn = &implScroll,
-                        .has_index_fn = &implHasIndex,
+                        .has_indexing_fn = &implHasIndexing,
                         .clone_fn = &implClone,
                         .get_len_fn = &implLen,
                         .deinit_fn = &implDeinit
@@ -204,7 +207,7 @@ pub fn Iterator(comptime T: type) type {
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
                         .scroll_fn = &implScroll,
-                        .has_index_fn = &implHasIndex,
+                        .has_indexing_fn = &implHasIndexing,
                         .clone_fn = &implClone,
                         .get_len_fn = &implLen,
                         .deinit_fn = &implDeinit
@@ -296,9 +299,9 @@ pub fn Iterator(comptime T: type) type {
                     self.inner_iter.scroll(amount);
                 }
 
-                fn implHasIndex(impl: *anyopaque) bool {
+                fn implHasIndexing(impl: *anyopaque) bool {
                     const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                    return self.inner_iter.hasIndex();
+                    return self.inner_iter.hasIndexing();
                 }
 
                 fn implClone(impl: *anyopaque) Allocator.Error!Iterator(TOther) {
@@ -333,7 +336,7 @@ pub fn Iterator(comptime T: type) type {
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
                             .scroll_fn = &implScroll,
-                            .has_index_fn = &implHasIndex,
+                            .has_indexing_fn = &implHasIndexing,
                             .clone_fn = &implClone,
                             .get_len_fn = &implLen,
                             .deinit_fn = &implDeinit
@@ -389,7 +392,7 @@ pub fn Iterator(comptime T: type) type {
 
                 fn implScroll(_: *anyopaque, _: isize) void { }
                 
-                fn implHasIndex(_: *anyopaque) bool { return false; }
+                fn implHasIndexing(_: *anyopaque) bool { return false; }
 
                 fn implClone(impl: *anyopaque) Allocator.Error!Self {
                     const self: *InnerSelf = @ptrCast(@alignCast(impl));
@@ -404,7 +407,7 @@ pub fn Iterator(comptime T: type) type {
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
                             .scroll_fn = &implScroll,
-                            .has_index_fn = &implHasIndex,
+                            .has_indexing_fn = &implHasIndexing,
                             .clone_fn = &implClone,
                             .get_len_fn = &implLen,
                             .deinit_fn = &implDeinit
@@ -432,7 +435,7 @@ pub fn Iterator(comptime T: type) type {
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
                             .scroll_fn = &implScroll,
-                            .has_index_fn = &implHasIndex,
+                            .has_indexing_fn = &implHasIndexing,
                             .clone_fn = &implClone,
                             .get_len_fn = &implLen,
                             .deinit_fn = &implDeinit
@@ -469,9 +472,9 @@ pub fn Iterator(comptime T: type) type {
             return i;
         }
 
-        /// Enumerates into a new slice, starting at `self`'s `next()` call.
-        /// For the full enumeration, you may need to call `reset()`.
-        /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
+        /// Enumerates into a new slice.
+        /// Note this does not reset `self` but rather starts at the current offset, so you may want to call `reset()` beforehand.
+        /// Note that `self` may need to be deallocated via calling `deinit()` or reset again for later enumeration.
         /// 
         /// Caller owns the resulting slice.
         pub fn toOwnedSlice(self: *Self) Allocator.Error![]T {
@@ -553,7 +556,7 @@ pub fn Iterator(comptime T: type) type {
 
                 fn implSetIndex(_: *anyopaque, _: usize) void { }
                 
-                fn implHasIndex(_: *anyopaque) bool { return false; }
+                fn implHasIndexing(_: *anyopaque) bool { return false; }
 
                 fn implReset(impl: *anyopaque) void {
                     const self: *InnerSelf = @ptrCast(@alignCast(impl));
@@ -576,7 +579,7 @@ pub fn Iterator(comptime T: type) type {
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
                             .scroll_fn = &implScroll,
-                            .has_index_fn = &implHasIndex,
+                            .has_indexing_fn = &implHasIndexing,
                             .clone_fn = &implClone,
                             .get_len_fn = &implLen,
                             .deinit_fn = &implDeinit
@@ -605,7 +608,7 @@ pub fn Iterator(comptime T: type) type {
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
                             .scroll_fn = &implScroll,
-                            .has_index_fn = &implHasIndex,
+                            .has_indexing_fn = &implHasIndexing,
                             .clone_fn = &implClone,
                             .get_len_fn = &implLen,
                             .deinit_fn = &implDeinit
