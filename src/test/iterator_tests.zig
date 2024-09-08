@@ -83,28 +83,24 @@ test "toOwnedSlice" {
     var nums: [3]u8 = [_]u8 { 1, 2, 3 };
     var inner = try Iterator(u8).from(testing.allocator, &nums);
     var iter = try inner.where(&isEven);
+    defer iter.deinit();
 
-    var asSlice: []u8 = undefined;
-    {
-        errdefer iter.deinit();
+    try testing.expect(iter.len() == 3);
 
-        try testing.expect(iter.len() == 3);
-
-        var i: usize = 0;
-        while (iter.next()) |x| {
-            try testing.expect(x == 2);
-            i += 1;
-        }
-
-        try testing.expect(i == 1);
-
-        iter.reset();
-        asSlice = try iter.toOwnedSlice();
+    var i: usize = 0;
+    while (iter.next()) |x| {
+        try testing.expect(x == 2);
+        i += 1;
     }
-    defer testing.allocator.free(asSlice);
 
-    try testing.expect(asSlice.len == 1);
-    try testing.expect(asSlice[0] == 2);
+    try testing.expect(i == 1);
+
+    iter.reset();
+    const slice: []u8 = try iter.toOwnedSlice();
+    defer testing.allocator.free(slice);
+
+    try testing.expect(slice.len == 1);
+    try testing.expect(slice[0] == 2);
 }
 test "empty" {
     var iter = Iterator(u8).empty(testing.allocator);

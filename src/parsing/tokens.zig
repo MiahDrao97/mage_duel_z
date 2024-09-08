@@ -452,6 +452,5 @@ pub const TokenIterator = struct {
 
     pub fn deinit(self: *TokenIterator) void {
         self.internal_iter.deinit();
-        self.* = undefined;
     }
 };

@@ -1,5 +1,4 @@
 const std = @import("std");
-const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
 /// Generic iterator interface for type `T`.
@@ -61,8 +60,8 @@ pub fn Iterator(comptime T: type) type {
             return self.v_table.get_len_fn(self.ptr);
         }
 
-        /// Free the underlying pointer
-        pub fn deinit(self: *Self) void {
+        /// Free the underlying pointer and other owned memory.
+        pub fn deinit(self: Self) void {
             self.v_table.deinit_fn(self.ptr);
         }
 
@@ -201,7 +200,7 @@ pub fn Iterator(comptime T: type) type {
         /// 
         /// Note that this empty instance is a singleton.
         /// `clone()` will not actually create a new instance, but just returns this one.
-        /// `deinit()` will not do anything either, so there is no need to call it.
+        /// There's no need to `deinit(), and calling that function will have no effect.
         pub fn empty(allocator: Allocator) Self {
             if (empty_instance != null) {
                 return empty_instance.?.iter();
@@ -245,9 +244,9 @@ pub fn Iterator(comptime T: type) type {
 
         /// Transforms this iterator into `Iterator(TOther)`, using the function passed in `selector`.
         /// 
-        /// This new `Iterator(TOther)` owns `other_iter`, so you only need to call `deinit()` on this one.
+        /// This new `Iterator(TOther)` owns `prev_iter`, so you only need to call `deinit()` on this one.
         pub fn select(
-            other_iter: Self,
+            prev_iter: Self,
             comptime TOther: type,
             selector: *const fn (T) TOther
         ) Allocator.Error!Iterator(TOther) {
@@ -319,27 +318,28 @@ pub fn Iterator(comptime T: type) type {
                     };
                 }
             };
-            const iter_ptr: *SelectIterator = try other_iter.allocator.create(SelectIterator);
+            const iter_ptr: *SelectIterator = try prev_iter.allocator.create(SelectIterator);
 
             iter_ptr.* = .{
-                .allocator = other_iter.allocator,
+                .allocator = prev_iter.allocator,
                 .select_fn = selector,
-                .inner_iter = other_iter
+                .inner_iter = prev_iter
             };
 
             return iter_ptr.iter();
         }
 
-        /// Filters the iteration of `other_iter`.
+        /// Filters the iteration of `prev_iter`.
         /// `next()` returns the next element that fulfills the condition on the passed-in `filter` or `null` if no more elements are present or fulfill the condition.
         /// 
-        /// Note that `setIndex()` and `scroll()` have no effect since all indexing is lost after calling `where()`.
+        /// ### Note
+        /// `setIndex()` and `scroll()` have no effect since all indexing is lost after calling `where()`.
         /// `len()` returns the length of the inner iterator, but that does not guarantee that this new iterator will return that many elements.
         /// However, it can serve to give a max length in a buffer scenario.
         /// The inner iterator can always be reset with `reset()`.
         /// 
-        /// This new `Iterator(T)` owns `other_iter`, so you only need to call `deinit()` on this one.
-        pub fn where(other_iter: Self, filter: *const fn (T) bool) Allocator.Error!Self {
+        /// This new `Iterator(T)` owns `prev_iter`, so you only need to call `deinit()` on this one.
+        pub fn where(prev_iter: Self, filter: *const fn (T) bool) Allocator.Error!Self {
             const WhereIterator = struct {
                 const InnerSelf = @This();
 
@@ -413,20 +413,23 @@ pub fn Iterator(comptime T: type) type {
                     };
                 }
             };
-            const iter_ptr: *WhereIterator = try other_iter.allocator.create(WhereIterator);
+            const iter_ptr: *WhereIterator = try prev_iter.allocator.create(WhereIterator);
 
             iter_ptr.* = .{
-                .allocator = other_iter.allocator,
+                .allocator = prev_iter.allocator,
                 .filter = filter,
-                .inner_iter = other_iter
+                .inner_iter = prev_iter
             };
 
             return iter_ptr.iter();
         }
 
-        /// Pass in a buffer to catch the full enumeration of `self`.
+        /// Enumerates into `buf`, starting at `self`'s current `next()` call.
+        /// For the full enumeration, you may need to call `reset()`.
         /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
-        pub fn enumerateToBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!void {
+        /// 
+        /// Returns the length written to the buffer.
+        pub fn enumerateToBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!usize {
             if (buf.len < self.len()) {
                 return error.NoSpaceLeft;
             }
@@ -436,11 +439,14 @@ pub fn Iterator(comptime T: type) type {
                 buf[i] = x;
                 i += 1;
             }
+            return i;
         }
 
-        /// Enumerates through all of `self` and deinits when finished.
+        /// Enumerates into a new slice, starting at `self`'s `next()` call.
+        /// For the full enumeration, you may need to call `reset()`.
+        /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
+        /// 
         /// Caller owns the resulting slice.
-        /// In the event of an error, `self` will not be destroyed.
         pub fn toOwnedSlice(self: *Self) Allocator.Error![]T {
             var buf: []T = try self.allocator.alloc(T, self.len());
 
@@ -466,9 +472,125 @@ pub fn Iterator(comptime T: type) type {
             }
 
             self.allocator.free(buf);
-            self.deinit();
 
             return final;
+        }
+
+        /// Enumerates through `iter`, storing the results in a fresh `Iterator(T)`.
+        /// `iter` is then destroyed.
+        /// 
+        /// This new iterator owns the results.
+        /// If de-allocation is required for the individual elements when calling `deinit()` on this new `Iterator(T)`,
+        /// pass in a function to be called for `on_deinit`.
+        /// 
+        /// ### Purpose
+        /// Use this method when you need an `Iterator(T)` with indexing, but the indexing on `iter` was lost due to calling methods like `where()` or `concat()`.
+        /// Apart from that specific scenario, avoid calling this method since reindexing costs time and memory.
+        /// If enumeration results are required, see if it can be done by converting the results to a slice, like `enumerateToBuffer()` or `toOwnedSlice()`.
+        pub fn rebuild(iter: Self, on_deinit: ?*const fn ([]T) void) Allocator.Error!Self {
+            const slice: []T = try iter.toOwnedSlice();
+            errdefer iter.allocator.free(slice);
+
+            const new_iter: Self = try fromSliceOwned(iter.allocator, slice, on_deinit);
+
+            iter.deinit();
+            return new_iter;
+        }
+
+        /// Concat two iterators, `a` and `b` into a new `Iterator(T)`.
+        /// It will iterate through `a`'s elements first, and then `b`'s.
+        /// 
+        /// ### Note
+        /// `setIndex()` and `scroll()` have no effect since all indexing is lost after calling `concat()`.
+        /// `len()` returns the combined lengths of `a` and `b`.
+        /// On calling `reset()`, both `a` and `b` reset, and we'll resume enumerating from the beginning of `a`.
+        /// 
+        /// This new `Iterator(T)` owns `a` and `b`, so there's no need to call `deinit()` on either of them.
+        pub fn concat(a: Self, b: Self) Allocator.Error!Self {
+            const ConcatIterator = struct {
+                const InnerSelf = @This();
+
+                iter_a: Self,
+                iter_b: Self,
+                allocator: Allocator,
+
+                fn implNext(impl: *anyopaque) ?T {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    if (self.iter_a.next()) |x| {
+                        return x;
+                    } else if (self.iter_b.next()) |y| {
+                        return y;
+                    }
+                    return null;
+                }
+
+                fn implSetIndex(_: *anyopaque, _: usize) void { }
+
+                fn implReset(impl: *anyopaque) void {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    self.iter_a.reset();
+                    self.iter_b.reset();
+                }
+
+                fn implScroll(_: *anyopaque, _: isize) void { }
+
+                fn implClone(impl: *anyopaque) Allocator.Error!Self {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    const ptr_cpy: *InnerSelf = try self.allocator.create(InnerSelf);
+                    ptr_cpy.* = self.*;
+
+                    return Self {
+                        .ptr = ptr_cpy,
+                        .allocator = self.allocator,
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        },
+                    };
+                }
+
+                fn implLen(impl: *anyopaque) usize {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    return self.iter_a.len() + self.iter_b.len();
+                }
+
+                fn implDeinit(impl: *anyopaque) void {
+                    const self: *InnerSelf = @ptrCast(@alignCast(impl));
+                    self.iter_a.deinit();
+                    self.iter_b.deinit();
+                    self.allocator.destroy(self);
+                }
+
+                pub fn iter(impl_ptr: *InnerSelf) Self {
+                    return Self {
+                        .ptr = impl_ptr,
+                        .allocator = impl_ptr.allocator,
+                        .v_table = .{
+                            .next_fn = &implNext,
+                            .reset_fn = &implReset,
+                            .set_index_fn = &implSetIndex,
+                            .scroll_fn = &implScroll,
+                            .clone_fn = &implClone,
+                            .get_len_fn = &implLen,
+                            .deinit_fn = &implDeinit
+                        },
+                    };
+                }
+            };
+            const iter_ptr: *ConcatIterator = try a.allocator.create(ConcatIterator);
+
+            iter_ptr.* = .{
+                .allocator = a.allocator,
+                .iter_a = a,
+                .iter_b = b
+            };
+
+            return iter_ptr.iter();
         }
     };
 }

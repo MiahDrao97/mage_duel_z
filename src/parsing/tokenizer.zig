@@ -52,13 +52,13 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
             } else {
                 continue;
             }
-        } else if (consumeWhitespace(&tokens_iter)) |b| {
+        } else if (consumeWhitespace(tokens_iter)) |b| {
             first = b;
         } else {
             break;
         }
 
-        const next_token: Token = self.readNextToken(first, &tokens_iter, &next_first) catch |err| {
+        const next_token: Token = self.readNextToken(first, tokens_iter, &next_first) catch |err| {
             std.log.debug("Successfully parsed:\n", .{});
             for (tokens_list.items) |token| {
                 std.log.debug("\t'{s}'\n", .{ token.toString() orelse "[null]" });
@@ -67,7 +67,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
         };
         switch (next_token) {
             Token.comment => {
-                readUntilNewlineOrEof(&tokens_iter);
+                readUntilNewlineOrEof(tokens_iter);
                 continue;
             },
             else => {
@@ -80,7 +80,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
     return try tokens_list.toOwnedSlice();
 }
 
-fn consumeWhitespace(tokens: *Iterator(u8)) ?u8 {
+fn consumeWhitespace(tokens: Iterator(u8)) ?u8 {
     while (tokens.next()) |char| {
         if (!util.isWhiteSpace(char)) {
             return char;
@@ -89,7 +89,7 @@ fn consumeWhitespace(tokens: *Iterator(u8)) ?u8 {
     return null;
 }
 
-fn readUntilNewlineOrEof(tokens: *Iterator(u8)) void {
+fn readUntilNewlineOrEof(tokens: Iterator(u8)) void {
     while (tokens.next()) |char| {
         if (char == '\n') {
             break;
@@ -97,7 +97,7 @@ fn readUntilNewlineOrEof(tokens: *Iterator(u8)) void {
     }
 }
 
-fn readNextToken(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
+fn readNextToken(self: Tokenizer, first: u8, tokens: Iterator(u8), next_first: *?u8) TokenizerError!Token {
     if (util.isAlpha(first) or first == '$' or first == '_') {
         return self.parseAlphaNumericToken(first, tokens, next_first);
     } else if (util.isNumeric(first)) {
@@ -107,7 +107,7 @@ fn readNextToken(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: 
     }
 }
 
-fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
+fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: Iterator(u8), next_first: *?u8) TokenizerError!Token {
     var chars = ArrayList(u8).init(self.allocator);
     defer chars.deinit();
 
@@ -149,7 +149,7 @@ fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: *Iterator(u8), nex
     return .{ .identifier = try StringToken.from(self.allocator, str) };
 }
 
-fn parseNumeric(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
+fn parseNumeric(self: Tokenizer, first: u8, tokens: Iterator(u8), next_first: *?u8) TokenizerError!Token {
     var chars = ArrayList(u8).init(self.allocator);
     defer chars.deinit();
 
@@ -170,7 +170,7 @@ fn parseNumeric(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *
     return .{ .numeric = try NumericToken.from(self.allocator, str) };
 }
 
-fn parseDiceToken(self: Tokenizer, chars: *ArrayList(u8), tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
+fn parseDiceToken(self: Tokenizer, chars: *ArrayList(u8), tokens: Iterator(u8), next_first: *?u8) TokenizerError!Token {
     while (tokens.next()) |token| {
         if (util.isNumeric(token)) {
             try chars.append(token);
@@ -186,7 +186,7 @@ fn parseDiceToken(self: Tokenizer, chars: *ArrayList(u8), tokens: *Iterator(u8),
     return .{ .dice = try DiceToken.from(self.allocator, str) };
 }
 
-fn parseSyntax(self: Tokenizer, first: u8, tokens: *Iterator(u8), next_first: *?u8) TokenizerError!Token {
+fn parseSyntax(self: Tokenizer, first: u8, tokens: Iterator(u8), next_first: *?u8) TokenizerError!Token {
     var str: []const u8 = &[_]u8 { first };
     if (util.containerHasSlice(u8, &import_tokens.static_tokens, str)) {
         if (first == '=') {
