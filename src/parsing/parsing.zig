@@ -155,7 +155,9 @@ pub const CardDef = struct {
         }
     }
 
-    pub fn toScope(self: *CardDef) Error!*Scope {
+    /// Converts this `CardDef` to a `Scope`.
+    /// Resulting scope must be freed by caller.
+    pub fn toOwnedScope(self: *CardDef) Error!*Scope {
         const scope: *Scope = try Scope.newObj(self.allocator, self);
         if (self.getRank()) |rank| {
             try scope.putValue("rank", .{
@@ -180,11 +182,13 @@ pub const CardDef = struct {
                 std.log.err("Cannot convert this card to a scope: Attack is missing accuracy.", .{});
                 return Error.InvalidCardDef;
             }
+            try scope.putValue("isAttack", .{ .boolean = true });
         }
 
         if (!self.isMonster()) {
             try scope.putFunc("getActionCost", &implGetActionCost);
         } else {
+            try scope.putValue("isMonster", .{ .boolean = true });
             // TODO: Monster-related functions
         }
         
