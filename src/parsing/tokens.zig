@@ -248,6 +248,11 @@ pub const Token = union(enum) {
         }
     }
 
+    pub fn deinitAllAndFree(allocator: Allocator, tokens: []Token) void {
+        deinitAll(tokens);
+        allocator.free(tokens);
+    }
+
     /// Allocates a clone of `self`, except in the cases of `comment` or `eof`, which just return `self`.
     pub fn clone(self: Token) ParseTokenError!Token {
         switch (self) {

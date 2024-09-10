@@ -335,8 +335,7 @@ pub const ListLiteral = struct {
     }
 
     pub fn deinit(self: *ListLiteral) void {
-        Expression.deinitAll(self.vals);
-        self.allocator.free(self.vals);
+        Expression.deinitAllAndFree(self.allocator, self.vals);
         self.allocator.destroy(self);
     }
 
@@ -354,7 +353,10 @@ pub const LabelLiteral = struct {
     allocator: Allocator,
 
     pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*LabelLiteral {
-        _ = try iter.require("#");
+        _ = iter.require("#") catch |err| {
+            iter.internal_iter.scroll(-1);
+            return err;
+        };
         const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
         var label: Label = undefined;
 
@@ -824,7 +826,7 @@ pub const EqualityExpression = struct {
 
         switch (lh_result) {
             Result.integer => |lh_int| {
-                const rh_int: i32 = rh_result.expectType(i32) catch { return Error.OperandTypeNotSupported; };
+                const rh_int: i32 = rh_result.expectType(i32) catch { return Error.OperandTypeMismatch; };
                 if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_int.value == rh_int };
                 } else {
@@ -832,11 +834,19 @@ pub const EqualityExpression = struct {
                 }
             },
             Result.boolean => |lh_bool| {
-                const rh_bool: bool = rh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
+                const rh_bool: bool = rh_result.expectType(bool) catch { return Error.OperandTypeMismatch; };
                 if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_bool == rh_bool };
                 } else {
                     return .{ .boolean = lh_bool != rh_bool };
+                }
+            },
+            Result.label => |lh_label| {
+                const rh_label: Label = rh_result.expectType(Label) catch {return Error.OperandTypeMismatch; };
+                if (self.op.stringEquals("==")) {
+                    return .{ .boolean = lh_label.equals(rh_label) };
+                } else {
+                    return .{ .boolean = !lh_label.equals(rh_label) };
                 }
             },
             else => return Error.OperandTypeNotSupported

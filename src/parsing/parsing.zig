@@ -117,10 +117,12 @@ pub const CardDef = struct {
 
         const index: IntResult = args[0].expectType(IntResult) catch {
             std.log.err("Expected arg 0 to be an integer.", .{});
-            return error.ArgumentFormatMismatch;
+            return error.ArgumentTypeMismatch;
         };
 
+        std.debug.assert(impl != null);
         const self: *CardDef = @ptrCast(@alignCast(impl.?));
+
         std.debug.assert(self.actions.len > 0);
         if (index.value < 0 or index.value >= self.actions.len) {
             std.log.err("Arg 0 is out of range (was '{}') => Values allowed to range from 0 to {d}.", .{

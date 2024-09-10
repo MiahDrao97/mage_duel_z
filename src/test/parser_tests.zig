@@ -31,8 +31,7 @@ test {
         errdefer {
             if (should_deinit_on_err) {
                 // error-defer here because if something fails below, we'll get red-herring'd with a ton of memory leaks
-                Token.deinitAll(tokens);
-                testing.allocator.free(tokens);
+                Token.deinitAllAndFree(testing.allocator, tokens);
             }
         }
 
@@ -41,8 +40,7 @@ test {
         defer card_def.deinit();
 
         // free here to make sure our card def is still intact
-        Token.deinitAll(tokens);
-        testing.allocator.free(tokens);
+        Token.deinitAllAndFree(testing.allocator, tokens);
         should_deinit_on_err = false;
 
         try testing.expect(card_def.labels.len == 3);

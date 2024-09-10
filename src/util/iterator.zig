@@ -234,7 +234,6 @@ pub fn Iterator(comptime T: type) type {
         /// Allocator is used to allocate a pointer to the impementation of `Iterator(T)`.
         pub fn from(allocator: Allocator, slice: []const T) Allocator.Error!Self {
             const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
-
             iter_ptr.* = .{
                 .inner = slice,
                 .allocator = allocator
@@ -251,7 +250,6 @@ pub fn Iterator(comptime T: type) type {
             on_deinit: ?*const fn ([]T) void
         ) Allocator.Error!Self {
             const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
-
             iter_ptr.* = .{
                 .inner = slice,
                 .owns_slice = true,
@@ -345,7 +343,6 @@ pub fn Iterator(comptime T: type) type {
                 }
             };
             const iter_ptr: *SelectIterator = try prev_iter.allocator.create(SelectIterator);
-
             iter_ptr.* = .{
                 .allocator = prev_iter.allocator,
                 .select_fn = selector,
@@ -444,7 +441,6 @@ pub fn Iterator(comptime T: type) type {
                 }
             };
             const iter_ptr: *WhereIterator = try prev_iter.allocator.create(WhereIterator);
-
             iter_ptr.* = .{
                 .allocator = prev_iter.allocator,
                 .filter = filter,
@@ -617,7 +613,6 @@ pub fn Iterator(comptime T: type) type {
                 }
             };
             const iter_ptr: *ConcatIterator = try a.allocator.create(ConcatIterator);
-
             iter_ptr.* = .{
                 .allocator = a.allocator,
                 .iter_a = a,

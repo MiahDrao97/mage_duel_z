@@ -26,8 +26,7 @@ test "tokenize numeric" {
     const tokenizer = Tokenizer.init(testing.allocator);
 
     const tokens: []Token = try tokenizer.tokenize(script);
-    defer testing.allocator.free(tokens);
-    defer Token.deinitAll(tokens);
+    defer Token.deinitAllAndFree(testing.allocator, tokens);
 
     try testing.expect(tokens.len == 2);
     try tokens[0].expectStringEquals("4");
@@ -41,8 +40,7 @@ test "tokenize boolean" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("false");
@@ -55,8 +53,7 @@ test "tokenize boolean" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("true");
@@ -71,8 +68,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("fire");
@@ -85,8 +81,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("lightning");
@@ -99,8 +94,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("divine");
@@ -113,8 +107,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("force");
@@ -127,8 +120,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("acid");
@@ -141,8 +133,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("necrotic");
@@ -155,8 +146,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("ice");
@@ -169,8 +159,7 @@ test "tokenize damage type" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("psychic");
@@ -185,8 +174,7 @@ test "tokenize identifier" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("$");
@@ -198,8 +186,7 @@ test "tokenize identifier" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("_");
@@ -211,8 +198,7 @@ test "tokenize identifier" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("$my_var");
@@ -226,8 +212,7 @@ test "tokenize syntax" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("!");
@@ -239,8 +224,7 @@ test "tokenize syntax" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("+!");
@@ -252,8 +236,7 @@ test "tokenize syntax" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 3);
         try tokens[0].expectStringEquals("+");
@@ -267,8 +250,7 @@ test "tokenize syntax" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 6);
         try tokens[0].expectStringEquals("=>");
@@ -290,8 +272,7 @@ test "tokenize comment" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         // comments are not added to the token list
         try testing.expect(tokens.len == 1);
@@ -311,8 +292,7 @@ test "tokenize real script" {
         const tokenizer = Tokenizer.init(testing.allocator);
 
         const tokens: []Token = try tokenizer.tokenize(script);
-        defer testing.allocator.free(tokens);
-        defer Token.deinitAll(tokens);
+        defer Token.deinitAllAndFree(testing.allocator, tokens);
 
         try testing.expect(tokens.len == 26);
 

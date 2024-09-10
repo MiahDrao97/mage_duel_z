@@ -46,8 +46,7 @@ pub const FunctionCall = struct {
 
     pub fn deinit(self: *FunctionCall) void {
         self.name.deinit();
-        Expression.deinitAll(self.args);
-        self.allocator.free(self.args);
+        Expression.deinitAllAndFree(self.allocator, self.args);
         self.allocator.destroy(self);
     }
 
@@ -111,7 +110,8 @@ pub const FunctionCall = struct {
     pub fn stmt(self: *FunctionCall) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &implExecute
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit,
         };
     }
 };
@@ -207,10 +207,8 @@ pub const IfStatement = struct {
 
     pub fn deinit(self: *IfStatement) void {
         self.condition.deinit();
-        Statement.deinitAll(self.true_statements);
-        Statement.deinitAll(self.else_statements);
-        self.allocator.free(self.true_statements);
-        self.allocator.free(self.else_statements);
+        Statement.deinitAllAndFree(self.allocator, self.true_statements);
+        Statement.deinitAllAndFree(self.allocator, self.else_statements);
         self.allocator.destroy(self);
     }
 
@@ -279,8 +277,7 @@ pub const ForLoop = struct {
     pub fn deinit(self: *ForLoop) void {
         self.identifier.deinit();
         self.range.deinit();
-        Statement.deinitAll(self.statements);
-        self.allocator.free(self.statements);
+        Statement.deinitAllAndFree(self.allocator, self.statements);
         self.allocator.destroy(self);
     }
 
@@ -383,8 +380,7 @@ pub const ActionDefinitionStatement = struct {
     }
 
     pub fn deinit(self: *const ActionDefinitionStatement) void {
-        Statement.deinitAll(self.statements);
-        self.allocator.free(self.statements);
+        Statement.deinitAllAndFree(self.allocator, self.statements);
         self.action_cost.deinit();
         self.allocator.destroy(self);
     }

@@ -128,10 +128,7 @@ fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !*ActionDef
     _ = try iter.require("}");
 
     const statements_slice: []Statement = try statements.toOwnedSlice();
-    errdefer {
-        Statement.deinitAll(statements_slice);
-        self.allocator.free(statements_slice);
-    }
+    errdefer Statement.deinitAllAndFree(self.allocator, statements_slice);
 
     return try ActionDefinitionStatement.new(self.allocator, statements_slice, actionCost, whenExpr);
 }
@@ -241,18 +238,16 @@ fn parseIfStatement(self: Parser, iter: TokenIterator) !*IfStatement {
     }
 
     const true_statements_slice: []Statement = try true_statements.toOwnedSlice();
-    errdefer {
-        Statement.deinitAll(true_statements_slice);
-        self.allocator.free(true_statements_slice);
-    }
+    errdefer Statement.deinitAllAndFree(self.allocator, true_statements_slice);
 
     const else_statements_slice: []Statement = try else_statements.toOwnedSlice();
-    errdefer {
-        Statement.deinitAll(else_statements_slice);
-        self.allocator.free(else_statements_slice);
-    }
+    errdefer Statement.deinitAllAndFree(self.allocator, else_statements_slice);
 
-    return try IfStatement.new(self.allocator, condition, true_statements_slice, else_statements_slice);
+    return try IfStatement.new(
+        self.allocator,
+        condition,
+        true_statements_slice,
+        else_statements_slice);
 }
 
 fn parseForLoop(self: Parser, iter: TokenIterator) !*ForLoop {
@@ -288,10 +283,7 @@ fn parseForLoop(self: Parser, iter: TokenIterator) !*ForLoop {
     }
 
     const statements_slice: []Statement = try statements.toOwnedSlice();
-    errdefer {
-        Statement.deinitAll(statements_slice);
-        self.allocator.free(statements_slice);
-    }
+    errdefer Statement.deinitAllAndFree(self.allocator, statements_slice);
 
     return try ForLoop.new(
         self.allocator,
@@ -313,7 +305,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         if (token.stringEquals("(")) {
             std.log.debug("Parsing function call", .{});
             // parse function call
-            var matchedParen: bool = false;
+            var matched_paren: bool = false;
             var expressions = ArrayList(Expression).init(self.allocator);
             errdefer {
                 Expression.deinitAll(expressions.items);
@@ -323,7 +315,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             while (iter.peek()) |next| {
                 if (next.stringEquals(")")) {
                     _ = try iter.require(")");
-                    matchedParen = true;
+                    matched_paren = true;
                     break;
                 }
                 var expr: Expression = try self.parseExpression(iter);
@@ -331,19 +323,16 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
 
                 try expressions.append(expr);
             }
-            if (!matchedParen) {
+            if (!matched_paren) {
                 return error.UnmatchedParen;
             }
             _ = try iter.require(";");
 
             const args: []Expression = try expressions.toOwnedSlice();
-            errdefer {
-                Expression.deinitAll(args);
-                self.allocator.free(args);
-            }
+            errdefer Expression.deinitAllAndFree(self.allocator, args);
 
-            var fnCall: *FunctionCall = try FunctionCall.new(self.allocator, identifier.name, args);
-            return fnCall.stmt();
+            var fn_call: *FunctionCall = try FunctionCall.new(self.allocator, identifier.name, args);
+            return fn_call.stmt();
         } else if (token.stringEquals("=>")) {
             std.log.debug("Parsing damage statement", .{});
 
@@ -565,6 +554,10 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) !Expression {
 
         if (IntegerLiteral.from(self.allocator, iter)) |int| {
             return int.expr();
+        } else |_| { }
+
+        if (LabelLiteral.from(self.allocator, iter)) |label| {
+            return label.expr();
         } else |_| { }
 
         // TODO: Make this an accessor expression

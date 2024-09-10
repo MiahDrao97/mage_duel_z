@@ -417,6 +417,25 @@ pub const Label = union(enum) {
         }
         return Error.InvalidLabel;
     }
+
+    pub fn asByte(self: Label) ?u8 {
+        switch (self) {
+            inline
+                Label.one_time_use,
+                Label.attack,
+                Label.monster => return null,
+            inline
+                Label.rank,
+                Label.accuracy => |x| return x
+        }
+    }
+
+    pub fn equals(a: Label, b: Label) bool {
+        if (std.mem.eql(u8, @tagName(a), @tagName(b))) {
+            return a.asByte() == b.asByte();
+        }
+        return false;
+    }
 };
 
 pub const FunctionDef = *const fn (?*anyopaque, []Result) anyerror!Result;
@@ -639,21 +658,24 @@ pub const PlayerInterface = struct {
 pub const Expression = struct {
     ptr: *anyopaque,
     evaluate_fn: *const fn (*anyopaque, *SymbolTable) Error!Result,
-    deinit_fn: ?*const fn (*anyopaque) void = null,
+    deinit_fn: *const fn (*anyopaque) void,
 
     pub fn evaluate(self: Expression, symbol_table: *SymbolTable) Error!Result {
         return self.evaluate_fn(self.ptr, symbol_table);
     }
 
     pub fn deinit(self: Expression) void {
-        if (self.deinit_fn) |callDeinit| {
-            callDeinit(self.ptr);
-        }
+        self.deinit_fn(self.ptr);
     }
     
     pub fn deinitAll(expressions: []Expression) void {
         for (expressions) |expr| {
             expr.deinit();
         }
+    }
+
+    pub fn deinitAllAndFree(allocator: Allocator, expressions: []Expression) void {
+        deinitAll(expressions);
+        allocator.free(expressions);
     }
 };
