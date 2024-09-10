@@ -55,27 +55,24 @@ pub const StringToken = struct {
     allocator: Allocator,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*StringToken {
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!StringToken {
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
-        const ptr: *StringToken = try allocator.create(StringToken);
-        ptr.* = StringToken {
+        return StringToken {
             .value = str_copy,
             .allocator = allocator
         };
-
-        return ptr;
     }
 
-    pub fn clone(self: StringToken) ParseTokenError!*StringToken {
+    pub fn clone(self: StringToken) ParseTokenError!StringToken {
         return from(self.allocator, self.value);
     }
 
     pub fn deinit(self: *StringToken) void {
         self.allocator.free(self.value);
-        self.allocator.destroy(self);
+        self.* = undefined;
     }
 };
 
@@ -85,30 +82,27 @@ pub const NumericToken = struct {
     value: u16,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*NumericToken {
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!NumericToken {
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         const num: u16 = try std.fmt.parseUnsigned(u16, str_copy, 10);
 
-        const ptr: *NumericToken = try allocator.create(NumericToken);
-        ptr.* = NumericToken {
+        return NumericToken {
             .string_value = str_copy,
             .value = num,
             .allocator = allocator
         };
-
-        return ptr;
     }
 
-    pub fn clone(self: NumericToken) ParseTokenError!*NumericToken {
+    pub fn clone(self: NumericToken) ParseTokenError!NumericToken {
         return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *NumericToken) void {
         self.allocator.free(self.string_value);
-        self.allocator.destroy(self);
+        self.* = undefined;
     }
 };
 
@@ -118,7 +112,7 @@ pub const BooleanToken = struct {
     value: bool,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*BooleanToken {
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!BooleanToken {
         var bool_val: bool = undefined;
         if (std.mem.eql(u8, str, "true")) {
             bool_val = true;
@@ -132,23 +126,20 @@ pub const BooleanToken = struct {
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
-        const ptr: *BooleanToken = try allocator.create(BooleanToken);
-        ptr.* = BooleanToken {
+        return BooleanToken {
             .string_value = str_copy,
             .value = bool_val,
             .allocator = allocator
         };
-
-        return ptr;
     }
 
-    pub fn clone(self: BooleanToken) ParseTokenError!*BooleanToken {
+    pub fn clone(self: BooleanToken) ParseTokenError!BooleanToken {
         return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *BooleanToken) void {
         self.allocator.free(self.string_value);
-        self.allocator.destroy(self);
+        self.* = undefined;
     }
 };
 
@@ -158,30 +149,27 @@ pub const DamageTypeToken = struct {
     value: DamageType,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*DamageTypeToken {
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!DamageTypeToken {
         const dmg_type: DamageType = try DamageType.from(str);
 
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
-        const ptr: *DamageTypeToken = try allocator.create(DamageTypeToken);
-        ptr.* = DamageTypeToken {
+        return DamageTypeToken {
             .string_value = str_copy,
             .value = dmg_type,
             .allocator = allocator
         };
-
-        return ptr;
     }
 
-    pub fn clone(self: DamageTypeToken) ParseTokenError!*DamageTypeToken {
+    pub fn clone(self: DamageTypeToken) ParseTokenError!DamageTypeToken {
         return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *DamageTypeToken) void {
         self.allocator.free(self.string_value);
-        self.allocator.destroy(self);
+        self.* = undefined;
     }
 };
 
@@ -191,7 +179,7 @@ pub const DiceToken = struct {
     sides: u8,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!*DiceToken {
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!DiceToken {
         if (str.len < 2) {
             return ParseTokenError.ParseDiceError;
         }
@@ -210,55 +198,52 @@ pub const DiceToken = struct {
         errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
-        const ptr: *DiceToken = try allocator.create(DiceToken);
-        ptr.* = DiceToken {
+        return DiceToken {
             .string_value = str_copy,
             .sides = sides,
             .allocator = allocator
         };
-
-        return ptr;
     }
 
     pub fn getDice(self: DiceToken) Dice {
         return Dice.new(self.sides) catch unreachable;
     }
 
-    pub fn clone(self: DiceToken) ParseTokenError!*DiceToken {
+    pub fn clone(self: DiceToken) ParseTokenError!DiceToken {
         return from(self.allocator, self.string_value);
     }
 
     pub fn deinit(self: *DiceToken) void {
         self.allocator.free(self.string_value);
-        self.allocator.destroy(self);
+        self.* = undefined;
     }
 };
 
 pub const Token = union(enum) {
-    identifier: *StringToken,
-    symbol: *StringToken,
-    numeric: *NumericToken,
-    boolean: *BooleanToken,
-    dice: *DiceToken,
-    damage_type: *DamageTypeToken,
+    identifier: StringToken,
+    symbol: StringToken,
+    numeric: NumericToken,
+    boolean: BooleanToken,
+    dice: DiceToken,
+    damage_type: DamageTypeToken,
     comment: void,
     eof: void,
 
-    pub fn deinit(self: Token) void {
-        switch (self) {
+    pub fn deinit(self: *Token) void {
+        switch (self.*) {
             inline
                 Token.identifier,
                 Token.numeric,
                 Token.symbol,
                 Token.boolean,
                 Token.dice,
-                Token.damage_type => |x| x.deinit(),
+                Token.damage_type => |*x| x.deinit(),
             else => { }
         }
     }
 
     pub fn deinitAll(tokens: []Token) void {
-        for (tokens) |token| {
+        for (tokens) |*token| {
             token.deinit();
         }
     }
@@ -289,12 +274,12 @@ pub const Token = union(enum) {
 
     pub fn toString(this: Token) ?[]const u8 {
         return switch (this) {
-            Token.identifier => |x| x.*.value,
-            Token.numeric => |x| x.*.string_value,
-            Token.symbol => |x| x.*.value,
-            Token.boolean => |x| x.*.string_value,
-            Token.dice => |x| x.*.string_value,
-            Token.damage_type => |x| x.*.string_value,
+            Token.identifier => |x| x.value,
+            Token.numeric => |x| x.string_value,
+            Token.symbol => |x| x.value,
+            Token.boolean => |x| x.string_value,
+            Token.dice => |x| x.string_value,
+            Token.damage_type => |x| x.string_value,
             else => null
         };
     }
@@ -354,21 +339,21 @@ pub const Token = union(enum) {
 
     pub fn getNumericValue(self: Token) ?u16 {
         return switch (self) {
-            Token.numeric => |n| n.*.value,
+            Token.numeric => |n| n.value,
             else => null
         };
     }
 
     pub fn getBoolValue(self: Token) ?bool {
         return switch (self) {
-            Token.boolean => |b| b.*.value,
+            Token.boolean => |b| b.value,
             else => null
         };
     }
 
     pub fn getDamageTypeValue(self: Token) ?DamageType {
         return switch (self) {
-            Token.damage_type => |d| d.*.value,
+            Token.damage_type => |d| d.value,
             else => null
         };
     }
