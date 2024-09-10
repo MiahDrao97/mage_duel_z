@@ -317,7 +317,7 @@ pub const ListLiteral = struct {
 
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *ListLiteral = @ptrCast(@alignCast(impl));
-        const evaluated: []Result = try symbol_table.allocator.alloc(Result);
+        const evaluated: []Result = try symbol_table.allocator.alloc(Result, self.vals.len);
 
         // since we require the allocator here, we're gonna assume each item needs one too
         for (0..self.vals.len) |i| {
@@ -565,8 +565,10 @@ pub const AdditiveExpression = struct {
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *AdditiveExpression = @ptrCast(@alignCast(impl));
 
-        const lh_result: Result = try self.lhs.evaluate(symbol_table);
-        const rh_result: Result = try self.rhs.evaluate(symbol_table);
+        var lh_result: Result = try self.lhs.evaluate(symbol_table);
+        _ = &lh_result;
+        var rh_result: Result = try self.rhs.evaluate(symbol_table);
+        _ = &rh_result;
 
         switch (lh_result) {
             Result.integer => |lh_int| {
@@ -587,20 +589,21 @@ pub const AdditiveExpression = struct {
                     };
                 }
             },
-            Result.list => |lh_list| {
+            Result.list => |*lh_list| {
                 try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
-                if (rh_result.as(ListResult)) |rh_list| {
-                    var new_list: ListResult = undefined;
+                var new_list: ListResult = undefined;
+
+                var maybe_rh_list: ?ListResult = rh_result.as(ListResult);
+                if (maybe_rh_list) |*rh_list| {
                     if (self.op.stringEquals("+")) {
-                        new_list = try lh_list.append(rh_list);
+                        new_list = try lh_list.append(rh_list.*);
                     } else if (self.op.stringEquals("+!")) {
-                        new_list = try lh_list.appendUnique(rh_list);
+                        new_list = try lh_list.appendUnique(rh_list.*);
                     } else {
-                        new_list = try lh_list.remove(rh_list);
+                        new_list = try lh_list.remove(rh_list.*);
                     }
-                    return .{ .list = new_list };
+                    rh_list.deinit();
                 } else {
-                    var new_list: ListResult = undefined;
                     if (self.op.stringEquals("+")) {
                         new_list = try lh_list.appendOne(rh_result);
                     } else if (self.op.stringEquals("+!")) {
@@ -608,8 +611,10 @@ pub const AdditiveExpression = struct {
                     } else {
                         new_list = try lh_list.removeOne(rh_result);
                     }
-                    return .{ .list = new_list };
                 }
+
+                lh_list.deinit();
+                return .{ .list = new_list };
             },
             Result.dice => |lh_dice| {
                 try self.op.expectStringEqualsOneOf(&[_][]const u8 { "+", "-" });
@@ -971,7 +976,9 @@ pub const TargetExpression = struct {
             return Error.MustBeGreaterThanZero;
         }
 
-        const eval_list: ListResult = try eval_pool.expectType(ListResult);
+        var eval_list: ListResult = try eval_pool.expectType(ListResult);
+        defer eval_list.deinit();
+
         if (symbol_table.getPlayerChoice(@intCast(eval_int.value), eval_list.items, !eval_int.up_to)) |choice| {
             return choice;
         } else |err| {

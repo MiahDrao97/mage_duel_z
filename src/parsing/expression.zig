@@ -445,9 +445,9 @@ pub const Symbol = union(enum) {
     function: FunctionDef,
     complex_object: *Scope,
 
-    pub fn unwrapValue(self: Symbol) error{UnwrapError}!*Result {
+    pub fn unwrapValue(self: Symbol) error{UnwrapError}!Result {
         switch (self) {
-            Symbol.value => |v| return v,
+            Symbol.value => |v| return v.*,
             else => return error.UnwrapError
         }
     }

@@ -524,7 +524,7 @@ fn parseUnaryExpression(self: Parser, iter: TokenIterator) !Expression {
     return self.parsePrimaryExpression(iter);
 }
 
-fn parsePrimaryExpression(self: Parser, iter: TokenIterator) !Expression {
+fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression {
     if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) |_| {
         const target_expr: *TargetExpression = try self.parseTargetExpression(iter, true);
         return target_expr.expr();
@@ -536,6 +536,31 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) !Expression {
 
         const paren_expr: ParenthesizedExpression = .{ .inner = expr };
         return paren_expr.expr();
+    } else if (iter.nextMatchesSymbol(&[_][] const u8 { "[" })) |_| {
+        var list: ArrayList(Expression) = ArrayList(Expression).init(self.allocator);
+        defer list.deinit();
+        errdefer Expression.deinitAll(list.items);
+
+        var list_terminated: bool = false;
+        var is_first_item: bool = true;
+        while (iter.peek()) |next_tok| {
+            if (next_tok.stringEquals("]")) {
+                _ = iter.next();
+                list_terminated = true;
+                break;
+            } else if (!is_first_item) {
+                _ = try iter.require("|");
+            }
+            try list.append(try self.parsePrimaryExpression(iter));
+            is_first_item = false;
+        }
+
+        if (!list_terminated) {
+            return error.UnterminatedListLiteral;
+        }
+
+        const list_literal: *ListLiteral = try ListLiteral.new(self.allocator, try list.toOwnedSlice());
+        return list_literal.expr();
     } else {
         // parse integer, boolean, damage type, dice, identifier, list literal
         // leaving damage expression out because it's a composite of integer/dice + damage type (see parsing damage statements)

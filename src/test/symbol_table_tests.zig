@@ -31,7 +31,7 @@ test "SymbolTable.putValue()" {
         };
         try symbol_table.putValue("$", symbol_value);
         if (symbol_table.getSymbol("$")) |symbol| {
-            const x: *ExpressionResult = try symbol.unwrapValue();
+            const x: ExpressionResult = try symbol.unwrapValue();
             const i: IntResult = try x.expectType(IntResult);
             try testing.expect(i.value == 3);
         } else {
@@ -53,7 +53,7 @@ test "SymbolTable.putValue()" {
 
         // should still work because this is defined on the outer scope
         if (symbol_table.getSymbol("$")) |symbol| {
-            const x: *ExpressionResult = try symbol.unwrapValue();
+            const x: ExpressionResult = try symbol.unwrapValue();
             const i: IntResult = try x.expectType(IntResult);
             try testing.expect(i.value == 3);
         } else {
@@ -110,9 +110,9 @@ test "SymbolTable.putFunc()" {
 
         const value_symbol: ?Symbol = symbol_table.getSymbol("$");
         try testing.expect(value_symbol != null);
-        const val: *ExpressionResult = try value_symbol.?.unwrapValue();
+        const val: ExpressionResult = try value_symbol.?.unwrapValue();
 
-        var args: [1]ExpressionResult = [_]ExpressionResult { val.* };
+        var args: [1]ExpressionResult = [_]ExpressionResult { val };
         const result: ExpressionResult = try func(null, &args);
         const i: IntResult = try result.expectType(IntResult);
         try testing.expect(i.value == 3);

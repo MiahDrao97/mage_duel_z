@@ -11,6 +11,7 @@ pub const Expression = expression.Expression;
 pub const ExpressionResult = expression.Result;
 pub const DiceResult = expression.DiceResult;
 pub const IntResult = expression.IntResult;
+pub const ListResult = expression.ListResult;
 pub const ExpressionErr = expression.Error;
 pub const concrete_expressions = @import("concrete_expressions.zig");
 pub const Token = tokens.Token;
@@ -143,6 +144,8 @@ pub const CardDef = struct {
             },
             ActionDefinitionStatement.ActionCostExpr.dynamic => |d| {
                 var empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
+                defer empty_sym_table.deinit();
+
                 const result: ExpressionResult = try d.amount.evaluate(&empty_sym_table);
                 var int_result: IntResult = result.as(IntResult) orelse {
                     std.log.err("Invalid amount expression on dynamic action cost expression.", .{});
@@ -159,6 +162,8 @@ pub const CardDef = struct {
     /// Resulting scope must be freed by caller.
     pub fn toOwnedScope(self: *CardDef) Error!*Scope {
         const scope: *Scope = try Scope.newObj(self.allocator, self);
+        errdefer scope.deinit();
+
         if (self.getRank()) |rank| {
             try scope.putValue("rank", .{
                 .label = .{

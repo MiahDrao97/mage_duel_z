@@ -419,7 +419,7 @@ pub const ActionDefinitionStatement = struct {
         }
     }
 
-    pub fn stmt(self: *const ActionDefinitionStatement) Statement {
+    pub fn stmt(self: *ActionDefinitionStatement) Statement {
         return .{
             .ptr = self,
             .execute_fn = &implExecute,
