@@ -8,7 +8,7 @@ pub fn Iterator(comptime T: type) type {
         const Self = @This();
 
         ptr:                *anyopaque,
-        v_table:            VTable,
+        v_table:            *const VTable,
         allocator:          Allocator,
 
         pub const VTable = struct {
@@ -106,7 +106,7 @@ pub fn Iterator(comptime T: type) type {
                 return Self {
                     .ptr = impl_ptr,
                     .allocator = impl_ptr.allocator,
-                    .v_table = .{
+                    .v_table = &.{
                         .next_fn = &implNext,
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
@@ -168,7 +168,7 @@ pub fn Iterator(comptime T: type) type {
                 return .{
                     .ptr = ptr_cpy,
                     .allocator = self.allocator,
-                    .v_table = .{
+                    .v_table = &.{
                         .next_fn = &implNext,
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
@@ -202,7 +202,7 @@ pub fn Iterator(comptime T: type) type {
                 return Self {
                     .ptr = impl_ptr,
                     .allocator = impl_ptr.allocator,
-                    .v_table = .{
+                    .v_table = &.{
                         .next_fn = &implNext,
                         .reset_fn = &implReset,
                         .set_index_fn = &implSetIndex,
@@ -331,7 +331,7 @@ pub fn Iterator(comptime T: type) type {
                     return Iterator(TOther) {
                         .ptr = impl_ptr,
                         .allocator = impl_ptr.allocator,
-                        .v_table = .{
+                        .v_table = &.{
                             .next_fn = &implNext,
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
@@ -402,7 +402,7 @@ pub fn Iterator(comptime T: type) type {
                     return Self {
                         .ptr = ptr_cpy,
                         .allocator = self.allocator,
-                        .v_table = .{
+                        .v_table = &.{
                             .next_fn = &implNext,
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
@@ -430,7 +430,7 @@ pub fn Iterator(comptime T: type) type {
                     return Self {
                         .ptr = impl_ptr,
                         .allocator = impl_ptr.allocator,
-                        .v_table = .{
+                        .v_table = &.{
                             .next_fn = &implNext,
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
@@ -459,7 +459,7 @@ pub fn Iterator(comptime T: type) type {
         /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
         /// 
         /// Returns the length written to the buffer.
-        pub fn enumerateToBuffer(self: *Self, buf: []T) error{NoSpaceLeft}!usize {
+        pub fn enumerateToBuffer(self: Self, buf: []T) error{NoSpaceLeft}!usize {
             if (buf.len < self.len()) {
                 return error.NoSpaceLeft;
             }
@@ -477,7 +477,7 @@ pub fn Iterator(comptime T: type) type {
         /// Note that `self` may need to be deallocated via calling `deinit()` or reset again for later enumeration.
         /// 
         /// Caller owns the resulting slice.
-        pub fn toOwnedSlice(self: *Self) Allocator.Error![]T {
+        pub fn toOwnedSlice(self: Self) Allocator.Error![]T {
             var buf: []T = try self.allocator.alloc(T, self.len());
 
             var i: usize = 0;
@@ -574,7 +574,7 @@ pub fn Iterator(comptime T: type) type {
                     return Self {
                         .ptr = ptr_cpy,
                         .allocator = self.allocator,
-                        .v_table = .{
+                        .v_table = &.{
                             .next_fn = &implNext,
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,
@@ -603,7 +603,7 @@ pub fn Iterator(comptime T: type) type {
                     return Self {
                         .ptr = impl_ptr,
                         .allocator = impl_ptr.allocator,
-                        .v_table = .{
+                        .v_table = &.{
                             .next_fn = &implNext,
                             .reset_fn = &implReset,
                             .set_index_fn = &implSetIndex,

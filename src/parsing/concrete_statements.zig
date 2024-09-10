@@ -51,8 +51,8 @@ pub const FunctionCall = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *FunctionCall = @ptrCast(@alignCast(impl));
         const func_symbol: Symbol = symbol_table.getSymbol(self.name.toString().?)
             orelse return error.FunctionDefinitionNotFound;
 
@@ -69,12 +69,12 @@ pub const FunctionCall = struct {
             args_list[i] = try arg.evaluate(symbol_table);
         }
 
-        const member_ptr: ?*anyopaque = symbol_table.current_scope.this_ptr;
+        const member_ptr: ?*anyopaque = symbol_table.current_scope.obj_ptr;
         _ = try function_def(member_ptr, args_list);
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *FunctionCall = @ptrCast(@alignCast(impl));
         const function_def: FunctionDef = symbol_table.getSymbol(self.name)
             orelse return error.FunctionDefinitionNotFound;
 
@@ -95,23 +95,23 @@ pub const FunctionCall = struct {
         };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *FunctionCall = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *FunctionCall = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *FunctionCall) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
     pub fn stmt(self: *FunctionCall) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute
+            .execute_fn = &execute
         };
     }
 };
@@ -135,8 +135,8 @@ pub const DamageStatement = struct {
         return ptr;
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *DamageStatement = @ptrCast(@alignCast(impl));
 
         const damage_transaction_eval: Result = try self.damage_transaction_expr.evaluate(symbol_table);
         _ = try damage_transaction_eval.expectType(DamageTransaction);
@@ -151,7 +151,7 @@ pub const DamageStatement = struct {
                         Symbol.function => |f| {
                             var args: [1]Result = [_]Result { damage_transaction_eval };
                             // should be a void function 
-                            _ = try f(o.this_ptr, &args);
+                            _ = try f(o.obj_ptr, &args);
                         },
                         else => return error.FunctionNotFound
                     }
@@ -163,8 +163,8 @@ pub const DamageStatement = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *DamageStatement = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *DamageStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -177,8 +177,8 @@ pub const DamageStatement = struct {
     pub fn stmt(self: *DamageStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute,
-            .deinitFn = &deinitFn
+            .execute_fn = &execute,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -214,8 +214,8 @@ pub const IfStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *IfStatement = @ptrCast(@alignCast(impl));
 
         const condition_eval: Result = try self.condition.evaluate(symbol_table);
         const condition: bool = try condition_eval.expectType(bool);
@@ -237,16 +237,16 @@ pub const IfStatement = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *IfStatement = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *IfStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn stmt(self: *IfStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute,
-            .deinitFn = &deinitFn
+            .execute_fn = &execute,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -284,8 +284,8 @@ pub const ForLoop = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *ForLoop = @ptrCast(@alignCast(impl));
         
         const range_eval: Result = try self.range.evaluate(symbol_table);
         switch (range_eval) {
@@ -332,16 +332,16 @@ pub const ForLoop = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *ForLoop = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *ForLoop = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn stmt(self: *ForLoop) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute,
-            .deinitFn = &deinitFn
+            .execute_fn = &execute,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -389,16 +389,16 @@ pub const ActionDefinitionStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(impl));
         // operating under the guise that the action cost has been paid
         for (self.statements) |inner_stmt| {
             try inner_stmt.execute(symbol_table);
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *ActionDefinitionStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -426,8 +426,8 @@ pub const ActionDefinitionStatement = struct {
     pub fn stmt(self: *ActionDefinitionStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute,
-            .deinitFn = &deinitFn
+            .execute_fn = &execute,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -463,23 +463,23 @@ pub const AssignmentStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(this_ptr: *anyopaque, symbol_table: *SymbolTable) !void {
-        const self: *AssignmentStatement = @ptrCast(@alignCast(this_ptr));
+    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+        const self: *AssignmentStatement = @ptrCast(@alignCast(impl));
 
         const evaluated = try self.value.evaluate(symbol_table);
         try symbol_table.putValue(self.identifier.toString().?, evaluated);
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *AssignmentStatement = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *AssignmentStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn stmt(self: *AssignmentStatement) Statement {
         return .{
             .ptr = self,
-            .executeFn = &execute,
-            .deinitFn = &deinitFn
+            .execute_fn = &execute,
+            .deinit_fn = &deinit_fn
         };
     }
 };

@@ -452,7 +452,7 @@ pub const Scope = struct {
     outer: ?*Scope = null,
     allocator: Allocator,
     symbols: StringHashMap(Symbol),
-    this_ptr: ?*anyopaque = null,
+    obj_ptr: ?*anyopaque = null,
 
     pub fn new(allocator: Allocator, outer: ?*Scope) Allocator.Error!*Scope {
         const ptr: *Scope = try allocator.create(Scope);
@@ -638,15 +638,15 @@ pub const PlayerInterface = struct {
 
 pub const Expression = struct {
     ptr: *anyopaque,
-    evaluateFn: *const fn (*anyopaque, *SymbolTable) Error!Result,
-    deinitFn: ?*const fn (*anyopaque) void = null,
+    evaluate_fn: *const fn (*anyopaque, *SymbolTable) Error!Result,
+    deinit_fn: ?*const fn (*anyopaque) void = null,
 
     pub fn evaluate(self: Expression, symbol_table: *SymbolTable) Error!Result {
-        return self.evaluateFn(self.ptr, symbol_table);
+        return self.evaluate_fn(self.ptr, symbol_table);
     }
 
     pub fn deinit(self: Expression) void {
-        if (self.deinitFn) |callDeinit| {
+        if (self.deinit_fn) |callDeinit| {
             callDeinit(self.ptr);
         }
     }

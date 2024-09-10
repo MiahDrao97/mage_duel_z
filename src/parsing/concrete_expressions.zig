@@ -51,8 +51,8 @@ pub const IntegerLiteral = struct {
         return ParseError.EOF;
     }
 
-    fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
-        const self: *IntegerLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(impl));
         return .{
             .integer = .{
                 .value = @intCast(self.val)
@@ -60,16 +60,16 @@ pub const IntegerLiteral = struct {
         };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *IntegerLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *IntegerLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *IntegerLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
@@ -98,21 +98,21 @@ pub const BooleanLiteral = struct {
         return ParseError.EOF;
     }
 
-    fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
-        const self: *BooleanLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(impl));
         return .{ .boolean = self.val };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *BooleanLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *BooleanLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *BooleanLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
@@ -141,21 +141,21 @@ pub const DamageTypeLiteral = struct {
         return ParseError.EOF;
     }
 
-    fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
-        const self: *DamageTypeLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *DamageTypeLiteral = @ptrCast(@alignCast(impl));
         return .{ .damage_type = self.val };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *DamageTypeLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *DamageTypeLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *DamageTypeLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
@@ -205,8 +205,8 @@ pub const DiceLiteral = struct {
         return ParseError.EOF;
     }
 
-    fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
-        const self: *DiceLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *DiceLiteral = @ptrCast(@alignCast(impl));
         return .{
             .dice = .{
                 .count = self.count,
@@ -215,16 +215,16 @@ pub const DiceLiteral = struct {
         };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *DiceLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *DiceLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *DiceLiteral) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
@@ -252,8 +252,8 @@ pub const DamageExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *DamageExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *DamageExpression = @ptrCast(@alignCast(impl));
 
         const damage_type_eval: Result = try self.damage_type_expr.evaluate(symbol_table);
         const damage_type: DamageType = try damage_type_eval.expectType(DamageType);
@@ -280,8 +280,8 @@ pub const DamageExpression = struct {
         return Error.InvalidInnerExpression;
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *DamageExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *DamageExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -294,8 +294,8 @@ pub const DamageExpression = struct {
     pub fn expr(self: *DamageExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -315,8 +315,8 @@ pub const ListLiteral = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *ListLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *ListLiteral = @ptrCast(@alignCast(impl));
         const evaluated: []Result = try symbol_table.allocator.alloc(Result);
 
         // since we require the allocator here, we're gonna assume each item needs one too
@@ -329,8 +329,8 @@ pub const ListLiteral = struct {
         };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *ListLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *ListLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -343,8 +343,8 @@ pub const ListLiteral = struct {
     pub fn expr(self: *ListLiteral) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -385,21 +385,21 @@ pub const LabelLiteral = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, _: *SymbolTable) Error!Result {
-        const self: *LabelLiteral = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *LabelLiteral = @ptrCast(@alignCast(impl));
         return .{ .label = self.label };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *LabelLiteral = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *LabelLiteral = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
     pub fn expr(self: *LabelLiteral) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 
@@ -425,8 +425,8 @@ pub const Identifier = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *Identifier = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *Identifier = @ptrCast(@alignCast(impl));
 
         if (symbol_table.getSymbol(self.name.toString().?)) |value| {
             return .{ .identifier = value };
@@ -434,8 +434,8 @@ pub const Identifier = struct {
         return Error.UndefinedIdentifier;
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *Identifier = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *Identifier = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -447,8 +447,8 @@ pub const Identifier = struct {
     pub fn expr(self: *Identifier) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -482,8 +482,8 @@ pub const UnaryExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *UnaryExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *UnaryExpression = @ptrCast(@alignCast(impl));
 
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
         switch (rh_result) {
@@ -516,8 +516,8 @@ pub const UnaryExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *UnaryExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *UnaryExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -530,8 +530,8 @@ pub const UnaryExpression = struct {
     pub fn expr(self: *UnaryExpression) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -560,8 +560,8 @@ pub const AdditiveExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *AdditiveExpression = @ptrCast(@alignCast(impl));
 
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
@@ -631,8 +631,8 @@ pub const AdditiveExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *AdditiveExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *AdditiveExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -646,8 +646,8 @@ pub const AdditiveExpression = struct {
     pub fn expr(self: *AdditiveExpression) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -676,8 +676,8 @@ pub const FactorExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *FactorExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *FactorExpression = @ptrCast(@alignCast(impl));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "*", "/" });
 
@@ -702,8 +702,8 @@ pub const FactorExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *FactorExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *FactorExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -717,8 +717,8 @@ pub const FactorExpression = struct {
     pub fn expr(self: *FactorExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -747,8 +747,8 @@ pub const ComparisonExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *ComparisonExpression = @ptrCast(@alignCast(impl));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "<", "<=", ">=", ">" });
 
@@ -769,8 +769,8 @@ pub const ComparisonExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *ComparisonExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *ComparisonExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -784,8 +784,8 @@ pub const ComparisonExpression = struct {
     pub fn expr(self: *ComparisonExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -814,8 +814,8 @@ pub const EqualityExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *EqualityExpression = @ptrCast(@alignCast(impl));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "==", "~=" });
 
@@ -843,8 +843,8 @@ pub const EqualityExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *EqualityExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *EqualityExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -858,8 +858,8 @@ pub const EqualityExpression = struct {
     pub fn expr(self: *EqualityExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -888,8 +888,8 @@ pub const BooleanExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *BooleanExpression = @ptrCast(@alignCast(impl));
 
         try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "|", "^" });
 
@@ -907,8 +907,8 @@ pub const BooleanExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *BooleanExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *BooleanExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -922,8 +922,8 @@ pub const BooleanExpression = struct {
     pub fn expr(self: *BooleanExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -950,8 +950,8 @@ pub const TargetExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *TargetExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *TargetExpression = @ptrCast(@alignCast(impl));
 
         const eval_amount: Result = try self.amount.evaluate(symbol_table);
         const eval_pool: Result = try self.pool.evaluate(symbol_table);
@@ -975,8 +975,8 @@ pub const TargetExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *TargetExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *TargetExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -989,8 +989,8 @@ pub const TargetExpression = struct {
     pub fn expr(self: *TargetExpression) Expression {
         return Expression {
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -1025,8 +1025,8 @@ pub const AccessorExpression = struct {
         return ptr;
     }
     
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *AccessorExpression = @ptrCast(@alignCast(impl));
 
         // we need at least one '.' for this to be a full accessor chain
         if (self.accessor_chain.len < 2) {
@@ -1074,8 +1074,8 @@ pub const AccessorExpression = struct {
         }
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *AccessorExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *AccessorExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -1092,8 +1092,8 @@ pub const AccessorExpression = struct {
     pub fn expr(self: *AccessorExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
@@ -1111,8 +1111,8 @@ pub const WhenExpression = struct {
         return ptr;
     }
 
-    fn evaluate(this_ptr: *anyopaque, symbol_table: *SymbolTable) Error!Result {
-        const self: *WhenExpression = @ptrCast(@alignCast(this_ptr));
+    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+        const self: *WhenExpression = @ptrCast(@alignCast(impl));
 
         const condition_eval: Result = try self.condition.evaluate(symbol_table);
         const condition: bool = try condition_eval.expectType(bool);
@@ -1120,8 +1120,8 @@ pub const WhenExpression = struct {
         return .{ .boolean = condition };
     }
 
-    fn deinitFn(this_ptr: *anyopaque) void {
-        const self: *WhenExpression = @ptrCast(@alignCast(this_ptr));
+    fn deinit_fn(impl: *anyopaque) void {
+        const self: *WhenExpression = @ptrCast(@alignCast(impl));
         self.deinit();
     }
 
@@ -1133,8 +1133,8 @@ pub const WhenExpression = struct {
     pub fn expr(self: *WhenExpression) Expression {
         return .{
             .ptr = self,
-            .evaluateFn = &evaluate,
-            .deinitFn = &deinitFn
+            .evaluate_fn = &evaluate,
+            .deinit_fn = &deinit_fn
         };
     }
 };
