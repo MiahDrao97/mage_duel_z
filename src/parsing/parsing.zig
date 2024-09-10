@@ -30,17 +30,24 @@ pub const Label = expression.Label;
 
 pub const CardDef = struct {
     labels: []Label,
-    actions: []*ActionDefinitionStatement,
+    actions: []const *ActionDefinitionStatement,
     allocator: Allocator,
 
-    const Error = Allocator.Error || error.InvalidCardDef;
+    const Error = Allocator.Error || error{InvalidCardDef};
 
-    pub fn init(allocator: Allocator, labels: []Label, actions: []*ActionDefinitionStatement) CardDef {
-        return .{
+    pub fn new(
+        allocator: Allocator,
+        labels: []Label,
+        actions: []const *ActionDefinitionStatement
+    ) Allocator.Error!*CardDef {
+        const ptr: *CardDef = try allocator.create(CardDef);
+        ptr.* = .{
             .labels = labels,
             .actions = actions,
             .allocator = allocator
         };
+
+        return ptr;
     }
 
     pub fn getRank(self: CardDef) ?u8 {
@@ -99,10 +106,10 @@ pub const CardDef = struct {
         }
         self.allocator.free(self.labels);
         self.allocator.free(self.actions);
-        self.* = undefined;
+        self.allocator.destroy(self);
     }
 
-    fn getActionCost(this_ptr: *anyopaque, args: []ExpressionResult) !ExpressionResult {
+    fn implGetActionCost(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
         if (args.len != 1) {
             std.log.err("Expected 1 argument, but received {d}.", .{ args.len });
             return error.ArgumentCountMismatch;
@@ -113,8 +120,9 @@ pub const CardDef = struct {
             return error.ArgumentFormatMismatch;
         };
 
-        const self: *CardDef = @ptrCast(@alignCast(this_ptr));
-        if (index.value < 0 or index.value > self.actions.len) {
+        const self: *CardDef = @ptrCast(@alignCast(impl.?));
+        std.debug.assert(self.actions.len > 0);
+        if (index.value < 0 or index.value >= self.actions.len) {
             std.log.err("Arg 0 is out of range (was '{}') => Values allowed to range from 0 to {d}.", .{
                 index.value,
                 self.actions.len - 1
@@ -122,7 +130,7 @@ pub const CardDef = struct {
             return error.ArgumentOutOfRange;
         }
         
-        const action_def: ActionDefinitionStatement = self.actions[ @intCast(index.value) ];
+        const action_def: *const ActionDefinitionStatement = self.actions[ @intCast(index.value) ];
         switch (action_def.action_cost) {
             ActionDefinitionStatement.ActionCostExpr.flat => |f| {
                 return .{
@@ -132,17 +140,21 @@ pub const CardDef = struct {
                 };
             },
             ActionDefinitionStatement.ActionCostExpr.dynamic => |d| {
-                const empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
-                return d.amount.evaluate(empty_sym_table).as(IntResult) orelse {
-                    std.log.err("Invalid amount expression on dynamic action cost expression.");
+                var empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
+                const result: ExpressionResult = try d.amount.evaluate(&empty_sym_table);
+                var int_result: IntResult = result.as(IntResult) orelse {
+                    std.log.err("Invalid amount expression on dynamic action cost expression.", .{});
                     return error.InvalidDynamicAmountExpr;
                 };
+                // it's dynamic, so this implicitly costs "up to" x actions
+                int_result.up_to = true;
+                return ExpressionResult { .integer = int_result };
             }
         }
     }
 
-    pub fn toScope(self: *CardDef, allocator: Allocator) Error!*Scope {
-        const scope: *Scope = try Scope.newObj(allocator, self);
+    pub fn toScope(self: *CardDef) Error!*Scope {
+        const scope: *Scope = try Scope.newObj(self.allocator, self);
         if (self.getRank()) |rank| {
             try scope.putValue("rank", .{
                 .label = .{
@@ -169,7 +181,7 @@ pub const CardDef = struct {
         }
 
         if (!self.isMonster()) {
-            try scope.putFunc("getActionCost", &getActionCost);
+            try scope.putFunc("getActionCost", &implGetActionCost);
         } else {
             // TODO: Monster-related functions
         }

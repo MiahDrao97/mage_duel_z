@@ -464,12 +464,12 @@ pub const Scope = struct {
         return ptr;
     }
 
-    pub fn newObj(allocator: Allocator, this_ptr: *anyopaque) Allocator.Error!*Scope {
+    pub fn newObj(allocator: Allocator, obj_ptr: *anyopaque) Allocator.Error!*Scope {
         const ptr: *Scope =  try allocator.create(Scope);
         ptr.* = .{
             .symbols = StringHashMap(Symbol).init(allocator),
             .allocator = allocator,
-            .this_ptr = this_ptr
+            .obj_ptr = obj_ptr
         };
         return ptr;
     }
@@ -628,11 +628,11 @@ const InnerError = error {
 pub const Error = InnerError || ParseTokenError || Allocator.Error;
 
 pub const PlayerInterface = struct {
-    this_ptr: *anyopaque,
+    ptr: *anyopaque,
     get_player_choice: *const fn (*anyopaque, u16, []const Result, bool) anyerror!Result,
 
     pub fn getPlayerChoice(self: PlayerInterface, amount: u16, pool: []const Result, exact: bool) !Result {
-        return try self.get_player_choice(self.this_ptr, amount, pool, exact);
+        return try self.get_player_choice(self.ptr, amount, pool, exact);
     }
 };
 

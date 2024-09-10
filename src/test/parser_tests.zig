@@ -8,6 +8,7 @@ const Token = parsing.Token;
 const CardDef = parsing.CardDef;
 const Scope = parsing.Scope;
 const Symbol = parsing.Symbol;
+const SymbolTable = parsing.SymbolTable;
 const FunctionDef = parsing.FunctionDef;
 const ExpressionResult = parsing.ExpressionResult;
 
@@ -36,7 +37,7 @@ test {
         }
 
         const parser: Parser = Parser.init(testing.allocator);
-        var card_def: CardDef = try parser.parseTokens(tokens);
+        const card_def: *CardDef = try parser.parseTokens(tokens);
         defer card_def.deinit();
 
         // free here to make sure our card def is still intact
@@ -51,5 +52,18 @@ test {
         try testing.expect(!card_def.isOneTimeUse());
         try testing.expect(card_def.getRank() == 'c');
         try testing.expect(card_def.getAccuracy() == 4);
+
+        const scope: *Scope = try card_def.toScope();
+        defer scope.deinit();
+
+        const get_action_cost_func: Symbol = scope.getSymbol("getActionCost").?;
+        const func: FunctionDef = try get_action_cost_func.unwrapFunction();
+        
+        var args: [1]ExpressionResult = [_]ExpressionResult { .{ .integer = .{ .value = 0 } } };
+        const result: ExpressionResult = try func(card_def, &args);
+        const int_result: parsing.IntResult = try result.expectType(parsing.IntResult);
+
+        try testing.expect(int_result.value == 1);
+        try testing.expect(!int_result.up_to);
     }
 }

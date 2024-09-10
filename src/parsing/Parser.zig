@@ -50,7 +50,7 @@ pub fn init(allocator: Allocator) Parser {
     return .{ .allocator = allocator };
 }
 
-pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
+pub fn parseTokens(self: Parser, to_parse: []Token) !*CardDef {
     var actions = try ArrayList(*ActionDefinitionStatement).initCapacity(self.allocator, to_parse.len);
     defer actions.deinit();
     errdefer {
@@ -90,7 +90,7 @@ pub fn parseTokens(self: Parser, to_parse: []Token) !CardDef {
 
     const actions_slice: []*ActionDefinitionStatement = try actions.toOwnedSlice();
 
-    return CardDef.init(self.allocator, labels_slice, actions_slice);
+    return try CardDef.new(self.allocator, labels_slice, actions_slice);
 }
 
 fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !*ActionDefinitionStatement {

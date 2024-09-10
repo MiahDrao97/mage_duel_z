@@ -382,7 +382,7 @@ pub const ActionDefinitionStatement = struct {
         return ptr;
     }
 
-    pub fn deinit(self: *ActionDefinitionStatement) void {
+    pub fn deinit(self: *const ActionDefinitionStatement) void {
         Statement.deinitAll(self.statements);
         self.allocator.free(self.statements);
         self.action_cost.deinit();
@@ -423,7 +423,7 @@ pub const ActionDefinitionStatement = struct {
         }
     }
 
-    pub fn stmt(self: *ActionDefinitionStatement) Statement {
+    pub fn stmt(self: *const ActionDefinitionStatement) Statement {
         return .{
             .ptr = self,
             .execute_fn = &implExecute,
