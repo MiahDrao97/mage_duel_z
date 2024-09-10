@@ -51,7 +51,7 @@ pub const FunctionCall = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
         const func_symbol: Symbol = symbol_table.getSymbol(self.name.toString().?)
             orelse return error.FunctionDefinitionNotFound;
@@ -73,7 +73,7 @@ pub const FunctionCall = struct {
         _ = try function_def(member_ptr, args_list);
     }
 
-    fn evaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
+    fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
         const function_def: FunctionDef = symbol_table.getSymbol(self.name)
             orelse return error.FunctionDefinitionNotFound;
@@ -95,7 +95,7 @@ pub const FunctionCall = struct {
         };
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -103,15 +103,15 @@ pub const FunctionCall = struct {
     pub fn expr(self: *FunctionCall) Expression {
         return .{
             .ptr = self,
-            .evaluate_fn = &evaluate,
-            .deinit_fn = &deinit_fn
+            .evaluate_fn = &implEvaluate,
+            .deinit_fn = &implDeinit
         };
     }
 
     pub fn stmt(self: *FunctionCall) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute
+            .execute_fn = &implExecute
         };
     }
 };
@@ -135,7 +135,7 @@ pub const DamageStatement = struct {
         return ptr;
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *DamageStatement = @ptrCast(@alignCast(impl));
 
         const damage_transaction_eval: Result = try self.damage_transaction_expr.evaluate(symbol_table);
@@ -163,7 +163,7 @@ pub const DamageStatement = struct {
         }
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *DamageStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -177,8 +177,8 @@ pub const DamageStatement = struct {
     pub fn stmt(self: *DamageStatement) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute,
-            .deinit_fn = &deinit_fn
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit
         };
     }
 };
@@ -214,7 +214,7 @@ pub const IfStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *IfStatement = @ptrCast(@alignCast(impl));
 
         const condition_eval: Result = try self.condition.evaluate(symbol_table);
@@ -237,7 +237,7 @@ pub const IfStatement = struct {
         }
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *IfStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -245,8 +245,8 @@ pub const IfStatement = struct {
     pub fn stmt(self: *IfStatement) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute,
-            .deinit_fn = &deinit_fn
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit
         };
     }
 };
@@ -284,7 +284,7 @@ pub const ForLoop = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *ForLoop = @ptrCast(@alignCast(impl));
         
         const range_eval: Result = try self.range.evaluate(symbol_table);
@@ -332,7 +332,7 @@ pub const ForLoop = struct {
         }
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *ForLoop = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -340,8 +340,8 @@ pub const ForLoop = struct {
     pub fn stmt(self: *ForLoop) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute,
-            .deinit_fn = &deinit_fn
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit
         };
     }
 };
@@ -389,7 +389,7 @@ pub const ActionDefinitionStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *ActionDefinitionStatement = @ptrCast(@alignCast(impl));
         // operating under the guise that the action cost has been paid
         for (self.statements) |inner_stmt| {
@@ -397,7 +397,7 @@ pub const ActionDefinitionStatement = struct {
         }
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *ActionDefinitionStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -426,8 +426,8 @@ pub const ActionDefinitionStatement = struct {
     pub fn stmt(self: *ActionDefinitionStatement) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute,
-            .deinit_fn = &deinit_fn
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit
         };
     }
 };
@@ -463,14 +463,14 @@ pub const AssignmentStatement = struct {
         self.allocator.destroy(self);
     }
 
-    fn execute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
+    fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *AssignmentStatement = @ptrCast(@alignCast(impl));
 
         const evaluated = try self.value.evaluate(symbol_table);
         try symbol_table.putValue(self.identifier.toString().?, evaluated);
     }
 
-    fn deinit_fn(impl: *anyopaque) void {
+    fn implDeinit(impl: *anyopaque) void {
         const self: *AssignmentStatement = @ptrCast(@alignCast(impl));
         self.deinit();
     }
@@ -478,8 +478,8 @@ pub const AssignmentStatement = struct {
     pub fn stmt(self: *AssignmentStatement) Statement {
         return .{
             .ptr = self,
-            .execute_fn = &execute,
-            .deinit_fn = &deinit_fn
+            .execute_fn = &implExecute,
+            .deinit_fn = &implDeinit
         };
     }
 };
