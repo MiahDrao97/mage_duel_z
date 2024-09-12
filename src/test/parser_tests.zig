@@ -1,5 +1,6 @@
 const std = @import("std");
 const parsing = @import("parsing");
+const game_zones = @import("game_zones");
 const testing = std.testing;
 
 const Parser = parsing.Parser;
@@ -11,6 +12,7 @@ const Symbol = parsing.Symbol;
 const SymbolTable = parsing.SymbolTable;
 const FunctionDef = parsing.FunctionDef;
 const ExpressionResult = parsing.ExpressionResult;
+const DamageType = game_zones.types.DamageType;
 
 // result types
 const IntResult = parsing.IntResult;
@@ -47,10 +49,46 @@ test "parse() list literal" {
         var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
         defer list_result.deinit();
         
+        try testing.expect(list_result.items.len == 2);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+
         for (list_result.items, 1..) |item, expected| {
             const item_result: IntResult = try item.expectType(IntResult);
             try testing.expect(item_result.value == @as(i32, @intCast(expected)));
         }
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [];
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+        
+        try testing.expect(list_result.items.len == 0);
+        try testing.expect(list_result.component_type == null);
     }
 }
 test "parse() additive expressions" {
@@ -79,6 +117,255 @@ test "parse() additive expressions" {
 
         const int_result: IntResult = try (try result.?.unwrapValue()).expectType(IntResult);
         try testing.expect(int_result.value == 2);
+    }
+    {
+        const script: []const u8 = "[0]: { $ = 1 - 2; }";
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        const int_result: IntResult = try (try result.?.unwrapValue()).expectType(IntResult);
+        try testing.expect(int_result.value == -1);
+    }
+}
+test "parse() list-literal, additive expression combo" {
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ 1 | 2 ] + 3;
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+        
+        for (list_result.items, 1..) |item, expected| {
+            const item_result: IntResult = try item.expectType(IntResult);
+            try testing.expect(item_result.value == @as(i32, @intCast(expected)));
+        }
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ 1 | 2 ] + [];
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+
+        try testing.expect(list_result.items.len == 2);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        
+        for (list_result.items, 1..) |item, expected| {
+            const item_result: IntResult = try item.expectType(IntResult);
+            try testing.expect(item_result.value == @as(i32, @intCast(expected)));
+        }
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ 1 | 2 ] +! [ 1 ];
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+
+        try testing.expect(list_result.items.len == 2);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        
+        for (list_result.items, 1..) |item, expected| {
+            const item_result: IntResult = try item.expectType(IntResult);
+            try testing.expect(item_result.value == @as(i32, @intCast(expected)));
+        }
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ 1 | 2 ] +! [ 1 | 3 ];
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+
+        try testing.expect(list_result.items.len == 3);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        
+        for (list_result.items, 1..) |item, expected| {
+            const item_result: IntResult = try item.expectType(IntResult);
+            try testing.expect(item_result.value == @as(i32, @intCast(expected)));
+        }
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ fire | ice ] - ice;
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+
+        try testing.expect(list_result.items.len == 1);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.damage_type), list_result.component_type.?);
+        
+        const dmg_type_result: DamageType = try list_result.items[0].expectType(DamageType);
+        try testing.expectEqualStrings(@tagName(DamageType.Fire), @tagName(dmg_type_result));
+    }
+    {
+        const script: []const u8 =
+            \\[0]: {
+            \\  $ = [ fire | ice ] - [ ice ];
+            \\}
+            ;
+
+        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokens: []Token = try tokenizer.tokenize(script);
+
+        var card_def: *CardDef = undefined;
+        {
+            defer Token.deinitAllAndFree(testing.allocator, tokens);
+
+            const parser: Parser = Parser.init(testing.allocator);
+            card_def = try parser.parseTokens(tokens);
+        }
+        defer card_def.deinit();
+
+        var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
+        defer sym_table.deinit();
+
+        try card_def.actions[0].stmt().execute(&sym_table);
+
+        const result: ?Symbol = sym_table.getSymbol("$");
+        try testing.expect(result != null);
+
+        var list_result: ListResult = try (try result.?.unwrapValue()).expectType(ListResult);
+        defer list_result.deinit();
+
+        try testing.expect(list_result.items.len == 1);
+        try testing.expectEqualStrings(@tagName(ExpressionResult.damage_type), list_result.component_type.?);
+        
+        const dmg_type_result: DamageType = try list_result.items[0].expectType(DamageType);
+        try testing.expectEqualStrings(@tagName(DamageType.Fire), @tagName(dmg_type_result));
     }
 }
 test "parse() Firebolt" {

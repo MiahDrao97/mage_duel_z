@@ -48,7 +48,7 @@ pub const Result = union(enum) {
         return self.as(T) orelse Error.UnexpectedType;
     }
 
-    pub const Context = struct {
+    const Context = struct {
         pub fn hash(_: Context, k: Result) u32 {
             var hash_result: u64 = 0;
             var result_type: u8 = 0;
@@ -60,8 +60,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(i32) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -71,8 +71,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(bool) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -82,8 +82,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DamageType) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -93,8 +93,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DamageTransaction) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -104,8 +104,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DiceResult) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -115,8 +115,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(Label) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -132,8 +132,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
@@ -146,8 +146,8 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (0..@intCast(hash_size)) |i| {
-                        to_hash[i + 1] = bytes[i];
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 }

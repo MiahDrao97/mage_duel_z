@@ -37,9 +37,22 @@ pub fn build(b: *std.Build) void {
         }
     });
 
+    const game_runtime = b.addModule("game_runtime", .{
+        .root_source_file = .{
+            .src_path = .{
+                .owner = b,
+                .sub_path = "src/game_runtime/game_runtime.zig",
+            }
+        }
+    });
+
     // add our dependent imports to parsing
     parsing.addImport("util", util);
     parsing.addImport("game_zones", game_zones);
+
+    game_runtime.addImport("util", util);
+    game_runtime.addImport("game_zones", game_zones);
+    game_runtime.addImport("parsing", parsing);
 
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
@@ -56,6 +69,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("util", util);
     exe.root_module.addImport("game_zones", game_zones);
     exe.root_module.addImport("parsing", parsing);
+    exe.root_module.addImport("game_runtime", game_runtime);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -96,6 +110,7 @@ pub fn build(b: *std.Build) void {
     tests.root_module.addImport("util", util);
     tests.root_module.addImport("game_zones", game_zones);
     tests.root_module.addImport("parsing", parsing);
+    tests.root_module.addImport("game_runtime", game_runtime);
 
     const run_tests = b.addRunArtifact(tests);
 
@@ -108,6 +123,7 @@ pub fn build(b: *std.Build) void {
     exe_unit_tests.root_module.addImport("util", util);
     exe_unit_tests.root_module.addImport("game_zones", game_zones);
     exe_unit_tests.root_module.addImport("parsing", parsing);
+    exe_unit_tests.root_module.addImport("game_runtime", game_runtime);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
