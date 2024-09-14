@@ -55,11 +55,9 @@ pub const FunctionCall = struct {
         const func_symbol: Symbol = symbol_table.getSymbol(self.name.toString().?)
             orelse return error.FunctionDefinitionNotFound;
 
-        var function_def: FunctionDef = undefined;
-        switch (func_symbol) {
-            Symbol.function => |f| function_def = f,
-            else => return error.UnexpectedSymbol
-        }
+        const function_def: FunctionDef = func_symbol.unwrapFunction() catch {
+            return error.UnexpectedSymbol;
+        };
 
         const args_list: []Result = try symbol_table.allocator.alloc(Result, self.args.len);
         defer symbol_table.allocator.free(args_list);
@@ -74,8 +72,12 @@ pub const FunctionCall = struct {
 
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
-        const function_def: FunctionDef = symbol_table.getSymbol(self.name)
+        const function_sym: Symbol = symbol_table.getSymbol(self.name)
             orelse return error.FunctionDefinitionNotFound;
+
+        const function_def: FunctionDef = function_sym.unwrapFunction() catch {
+            return error.FunctionDefinitionNotFound;
+        };
 
         const args_list: []Result = symbol_table.allocator.alloc(Result, self.args.len);
         defer symbol_table.allocator.free(args_list);

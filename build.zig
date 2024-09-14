@@ -47,6 +47,8 @@ pub fn build(b: *std.Build) void {
     });
 
     // add our dependent imports to parsing
+    game_zones.addImport("util", util);
+
     parsing.addImport("util", util);
     parsing.addImport("game_zones", game_zones);
 
