@@ -11,7 +11,7 @@ pub const DamageType  = enum {
     Ice,
     Psychic,
 
-    pub fn from(str: []const u8) error{ParseDamageTypeError}!DamageType {
+    pub fn try_from(str: []const u8) ?DamageType {
         if (std.mem.eql(u8, str, "fire")) {
             return DamageType.Fire;
         } else if (std.mem.eql(u8, str, "lightning")) {
@@ -29,7 +29,7 @@ pub const DamageType  = enum {
         } else if (std.mem.eql(u8, str, "psychic")) {
             return DamageType.Psychic;
         }
-        return error.ParseDamageTypeError;
+        return null;
     }
 };
 

@@ -57,7 +57,6 @@ pub const StringToken = struct {
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!StringToken {
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         return StringToken {
@@ -123,7 +122,6 @@ pub const BooleanToken = struct {
         }
 
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         return BooleanToken {
@@ -150,17 +148,17 @@ pub const DamageTypeToken = struct {
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!DamageTypeToken {
-        const dmg_type: DamageType = try DamageType.from(str);
+        if (DamageType.try_from(str)) |dmg_type| {
+            const str_copy: []u8 = try allocator.alloc(u8, str.len);
+            @memcpy(str_copy, str);
 
-        const str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
-        @memcpy(str_copy, str);
-
-        return DamageTypeToken {
-            .string_value = str_copy,
-            .value = dmg_type,
-            .allocator = allocator
-        };
+            return DamageTypeToken {
+                .string_value = str_copy,
+                .value = dmg_type,
+                .allocator = allocator
+            };
+        }
+        return ParseTokenError.ParseDamageTypeError;        
     }
 
     pub fn clone(self: DamageTypeToken) ParseTokenError!DamageTypeToken {
