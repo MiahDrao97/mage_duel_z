@@ -28,7 +28,7 @@ pub const Result = union(enum) {
 
     pub fn as(self: Result, comptime T: type) ?T {
         switch (self) {
-            Result.integer => |i| {
+            .integer => |i| {
                 if (T == i32) {
                     return i.value;
                 } else if (T == IntResult) {
@@ -53,8 +53,8 @@ pub const Result = union(enum) {
             var hash_result: u64 = 0;
             var result_type: u8 = 0;
             switch (k) {
-                Result.void => hash_result = 0,
-                Result.integer => |int| {
+                .void => hash_result = 0,
+                .integer => |int| {
                     result_type = 1;
                     const bytes: [@sizeOf(i32)]u8 = std.mem.toBytes(int.value);
                     const hash_size: comptime_int = @sizeOf(i32) + 1;
@@ -65,7 +65,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.boolean => |boolean| {
+                .boolean => |boolean| {
                     result_type = 2;
                     const bytes: [@sizeOf(bool)]u8 = std.mem.toBytes(boolean);
                     const hash_size: comptime_int = @sizeOf(bool) + 1;
@@ -76,7 +76,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.damage_type => |damage_type| {
+                .damage_type => |damage_type| {
                     result_type = 3;
                     const bytes: [@sizeOf(DamageType)]u8 = std.mem.toBytes(damage_type);
                     const hash_size: comptime_int = @sizeOf(DamageType) + 1;
@@ -87,7 +87,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.damage_transaction => |damage_transaction| {
+                .damage_transaction => |damage_transaction| {
                     result_type = 4;
                     const bytes: [@sizeOf(DamageTransaction)]u8 = std.mem.toBytes(damage_transaction);
                     const hash_size: comptime_int = @sizeOf(DamageTransaction) + 1;
@@ -98,7 +98,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.dice => |dice| {
+                .dice => |dice| {
                     result_type = 5;
                     const bytes: [@sizeOf(DiceResult)]u8 = std.mem.toBytes(dice);
                     const hash_size: comptime_int = @sizeOf(DiceResult) + 1;
@@ -109,7 +109,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.label => |label| {
+                .label => |label| {
                     result_type = 6;
                     const bytes: [@sizeOf(Label)]u8 = std.mem.toBytes(label);
                     const hash_size: comptime_int = @sizeOf(Label) + 1;
@@ -120,7 +120,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.identifier => |identifier| {
+                .identifier => |identifier| {
                     result_type = 6;
                     var ptr: usize = undefined;
                     switch (identifier) {
@@ -137,7 +137,7 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                Result.list => |list| {
+                .list => |list| {
                     result_type = 7;
                     // TODO: do we wanna hash each item?
                     // Right now, we're not evaluating the contents...
@@ -420,13 +420,11 @@ pub const Label = union(enum) {
 
     pub fn asByte(self: Label) ?u8 {
         switch (self) {
-            inline
-                Label.one_time_use,
-                Label.attack,
-                Label.monster => return null,
-            inline
-                Label.rank,
-                Label.accuracy => |x| return x
+            .one_time_use,
+            .attack,
+            .monster => return null,
+            .rank,
+            .accuracy => |x| return x
         }
     }
 
@@ -447,21 +445,21 @@ pub const Symbol = union(enum) {
 
     pub fn unwrapValue(self: Symbol) error{UnwrapError}!Result {
         switch (self) {
-            Symbol.value => |v| return v.*,
+            .value => |v| return v.*,
             else => return error.UnwrapError
         }
     }
 
     pub fn unwrapFunction(self: Symbol) error{UnwrapError}!FunctionDef {
         switch (self) {
-            Symbol.function => |f| return f,
+            .function => |f| return f,
             else => return error.UnwrapError
         }
     }
 
     pub fn unwrapObj(self: Symbol) error{UnwrapError}!*Scope {
         switch (self) {
-            Symbol.complex_object => |o| return o,
+            .complex_object => |o| return o,
             else => return error.UnwrapError
         }
     }
@@ -547,8 +545,8 @@ pub const Scope = struct {
         while (iter.next()) |kvp| {
             self.allocator.free(kvp.key_ptr.*);
             switch (kvp.value_ptr.*) {
-                Symbol.value => |v| self.allocator.destroy(v),
-                Symbol.complex_object => |o| o.deinit(),
+                .value => |v| self.allocator.destroy(v),
+                .complex_object => |o| o.deinit(),
                 // function def's are comptime pointers, so no need to destroy anything here
                 else => { }
             }

@@ -147,10 +147,10 @@ pub const DamageStatement = struct {
         const target: Symbol = try target_eval.expectType(Symbol);
 
         switch (target) {
-            Symbol.complex_object => |o| {
+            .complex_object => |o| {
                 if (o.getSymbol("takeDamage")) |take_damage_symb| {
                     switch (take_damage_symb) {
-                        Symbol.function => |f| {
+                        .function => |f| {
                             var args: [1]Result = [_]Result { damage_transaction_eval };
                             // should be a void function 
                             _ = try f(o.obj_ptr, &args);
@@ -288,10 +288,10 @@ pub const ForLoop = struct {
         
         const range_eval: Result = try self.range.evaluate(symbol_table);
         switch (range_eval) {
-            Result.list => |list| {
+            .list => |list| {
                 try self.executeList(list.items, symbol_table);
             },
-            Result.integer => |i| {
+            .integer => |i| {
                 if (i.value < 0) {
                     return error.RangeCannotBeNegative;
                 }

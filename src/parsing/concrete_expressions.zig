@@ -489,7 +489,7 @@ pub const UnaryExpression = struct {
 
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
         switch (rh_result) {
-            Result.boolean => |x| {
+            .boolean => |x| {
                 if (self.op.expectSymbolEquals("~")) {
                     return .{ .boolean = !x };
                 } else |err| {
@@ -497,7 +497,7 @@ pub const UnaryExpression = struct {
                 }
                 return Error.OperandTypeNotSupported;
             },
-            Result.integer => |x| {
+            .integer => |x| {
                 if (self.op.symbolEquals("-")) {
                     return .{
                         .integer = .{
@@ -571,7 +571,7 @@ pub const AdditiveExpression = struct {
         _ = &rh_result;
 
         switch (lh_result) {
-            Result.integer => |lh_int| {
+            .integer => |lh_int| {
                 // rhs can only be an integer in this case
                 const rh_int: i32 = rh_result.expectType(i32) catch { return Error.OperandTypeMismatch; };
                 try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-" });
@@ -589,7 +589,7 @@ pub const AdditiveExpression = struct {
                     };
                 }
             },
-            Result.list => |*lh_list| {
+            .list => |*lh_list| {
                 try self.op.expectSymbolEqualsOneOf(&[_][]const u8 { "+", "-", "+!" });
                 var new_list: ListResult = undefined;
 
@@ -616,7 +616,7 @@ pub const AdditiveExpression = struct {
                 lh_list.deinit();
                 return .{ .list = new_list };
             },
-            Result.dice => |lh_dice| {
+            .dice => |lh_dice| {
                 try self.op.expectStringEqualsOneOf(&[_][]const u8 { "+", "-" });
                 const rh_int: i32 = try rh_result.expectType(i32);
 
@@ -830,7 +830,7 @@ pub const EqualityExpression = struct {
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
         switch (lh_result) {
-            Result.integer => |lh_int| {
+            .integer => |lh_int| {
                 const rh_int: i32 = rh_result.expectType(i32) catch { return Error.OperandTypeMismatch; };
                 if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_int.value == rh_int };
@@ -838,7 +838,7 @@ pub const EqualityExpression = struct {
                     return .{ .boolean = lh_int.value != rh_int };
                 }
             },
-            Result.boolean => |lh_bool| {
+            .boolean => |lh_bool| {
                 const rh_bool: bool = rh_result.expectType(bool) catch { return Error.OperandTypeMismatch; };
                 if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_bool == rh_bool };
@@ -846,7 +846,7 @@ pub const EqualityExpression = struct {
                     return .{ .boolean = lh_bool != rh_bool };
                 }
             },
-            Result.label => |lh_label| {
+            .label => |lh_label| {
                 const rh_label: Label = rh_result.expectType(Label) catch {return Error.OperandTypeMismatch; };
                 if (self.op.stringEquals("==")) {
                     return .{ .boolean = lh_label.equals(rh_label) };
@@ -1062,7 +1062,7 @@ pub const AccessorExpression = struct {
 
             std.debug.assert(i > 0);
             switch(current_symbol) {
-                Symbol.complex_object => |o| {
+                .complex_object => |o| {
                     if (i < self.accessor_chain.len - 1) {
                         current_symbol = o.getSymbol(member.name) orelse {
                             std.log.err("Member '{s}' was not found on {s}.", .{ member.name, previous_node_name });
@@ -1072,7 +1072,7 @@ pub const AccessorExpression = struct {
                         return .{ .identifier = o.* };
                     }
                 },
-                Symbol.function => |_| {
+                .function => |_| {
                     if (i < self.accessor_chain.len - 1) {
                         // function args are stored on the member, so just evaluate
                         current_symbol = try member.expr().evaluate();
@@ -1081,7 +1081,7 @@ pub const AccessorExpression = struct {
                         return Error.HigherOrderFunctionsNotSupported;
                     }
                 },
-                Symbol.value => |x| {
+                .value => |x| {
                     if (i < self.accessor_chain.len - 1) {
                         return Error.PrematureAccessorTerminus;
                     }

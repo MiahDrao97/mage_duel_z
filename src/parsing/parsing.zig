@@ -54,7 +54,7 @@ pub const CardDef = struct {
     pub fn getRank(self: CardDef) ?u8 {
         for (self.labels) |label| {
             switch (label) {
-                Label.rank => |r| return r,
+                .rank => |r| return r,
                 else => { }
             }
         }
@@ -64,7 +64,7 @@ pub const CardDef = struct {
     pub fn getAccuracy(self: CardDef) ?u8 {
         for (self.labels) |label| {
             switch (label) {
-                Label.accuracy => |r| return r,
+                .accuracy => |r| return r,
                 else => { }
             }
         }
@@ -74,7 +74,7 @@ pub const CardDef = struct {
     pub fn isAttack(self: CardDef) bool {
         for (self.labels) |label| {
             switch (label) {
-                Label.attack => return true,
+                .attack => return true,
                 else => { }
             }
         }
@@ -84,7 +84,7 @@ pub const CardDef = struct {
     pub fn isMonster(self: CardDef) bool {
         for (self.labels) |label| {
             switch (label) {
-                Label.monster => return true,
+                .monster => return true,
                 else => { }
             }
         }
@@ -94,7 +94,7 @@ pub const CardDef = struct {
     pub fn isOneTimeUse(self: CardDef) bool {
         for (self.labels) |label| {
             switch (label) {
-                Label.one_time_use => return true,
+                .one_time_use => return true,
                 else => { }
             }
         }
@@ -135,7 +135,7 @@ pub const CardDef = struct {
         
         const action_def: *const ActionDefinitionStatement = self.actions[ @intCast(index.value) ];
         switch (action_def.action_cost) {
-            ActionDefinitionStatement.ActionCostExpr.flat => |f| {
+            .flat => |f| {
                 return .{
                     .integer = .{
                         .value = @intCast(f.val)

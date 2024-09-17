@@ -232,12 +232,12 @@ pub const Token = union(enum) {
     pub fn deinit(self: *Token) void {
         switch (self.*) {
             inline
-                Token.identifier,
-                Token.numeric,
-                Token.symbol,
-                Token.boolean,
-                Token.dice,
-                Token.damage_type => |*x| x.deinit(),
+                .identifier,
+                .numeric,
+                .symbol,
+                .boolean,
+                .dice,
+                .damage_type => |*x| x.deinit(),
             else => { }
         }
     }
@@ -256,12 +256,12 @@ pub const Token = union(enum) {
     /// Allocates a clone of `self`, except in the cases of `comment` or `eof`, which just return `self`.
     pub fn clone(self: Token) ParseTokenError!Token {
         switch (self) {
-            Token.identifier => |i| return .{ .identifier = try i.clone() },
-            Token.numeric => |n| return .{ .numeric = try n.clone() },
-            Token.symbol => |s| return .{ .symbol = try s.clone() },
-            Token.boolean => |b| return .{ .boolean = try b.clone() },
-            Token.dice => |d| return .{ .dice = try d.clone() },
-            Token.damage_type => |d| return .{ .damage_type = try d.clone() },
+            .identifier => |i| return .{ .identifier = try i.clone() },
+            .numeric => |n| return .{ .numeric = try n.clone() },
+            .symbol => |s| return .{ .symbol = try s.clone() },
+            .boolean => |b| return .{ .boolean = try b.clone() },
+            .dice => |d| return .{ .dice = try d.clone() },
+            .damage_type => |d| return .{ .damage_type = try d.clone() },
             else => return self
         }
     }
@@ -279,12 +279,11 @@ pub const Token = union(enum) {
 
     pub fn toString(this: Token) ?[]const u8 {
         return switch (this) {
-            Token.identifier => |x| x.value,
-            Token.numeric => |x| x.string_value,
-            Token.symbol => |x| x.value,
-            Token.boolean => |x| x.string_value,
-            Token.dice => |x| x.string_value,
-            Token.damage_type => |x| x.string_value,
+            .identifier, .symbol => |x| x.value,
+            .numeric => |x| x.string_value,
+            .boolean => |x| x.string_value,
+            .dice => |x| x.string_value,
+            .damage_type => |x| x.string_value,
             else => null
         };
     }
@@ -344,28 +343,28 @@ pub const Token = union(enum) {
 
     pub fn getNumericValue(self: Token) ?u16 {
         return switch (self) {
-            Token.numeric => |n| n.value,
+            .numeric => |n| n.value,
             else => null
         };
     }
 
     pub fn getBoolValue(self: Token) ?bool {
         return switch (self) {
-            Token.boolean => |b| b.value,
+            .boolean => |b| b.value,
             else => null
         };
     }
 
     pub fn getDamageTypeValue(self: Token) ?DamageType {
         return switch (self) {
-            Token.damage_type => |d| d.value,
+            .damage_type => |d| d.value,
             else => null
         };
     }
 
     pub fn getDiceValue(self: Token) ?Dice {
         return switch (self) {
-            Token.dice => |d| d.getDice(),
+            .dice => |d| d.getDice(),
             else => null
         };
     }
@@ -383,7 +382,7 @@ pub const TokenIterator = struct {
     pub fn next(self: TokenIterator) ?Token {
         if (self.internal_iter.next()) |t| {
             return switch (t) {
-                inline Token.comment, Token.eof => null,
+                .comment, .eof => null,
                 else => t
             };
         }
@@ -412,7 +411,7 @@ pub const TokenIterator = struct {
 
     /// Assumes that the next token needs to be a symbol with a given string value
     pub fn require(self: TokenIterator, str_value: []const u8) ParseTokenError!Token {
-        if (self.internal_iter.next()) |t| {
+        if (self.next()) |t| {
             try t.expectSymbolEquals(str_value);
             return t;
         }
@@ -421,7 +420,7 @@ pub const TokenIterator = struct {
 
     /// Assumes that the next token needs to be a symbol with a given string value
     pub fn requireOneOf(self: TokenIterator, str_values: []const []const u8) ParseTokenError!Token {
-        if (self.internal_iter.next()) |t| {
+        if (self.next()) |t| {
             try t.expectSymbolEqualsOneOf(str_values);
             return t;
         }
@@ -429,7 +428,7 @@ pub const TokenIterator = struct {
     }
 
     pub fn requireType(self: TokenIterator, tag_names: []const []const u8) ParseTokenError!Token {
-        if (self.internal_iter.next()) |t| {
+        if (self.next()) |t| {
             for (tag_names) |tag| {
                 if (t.matchesType(tag)) {
                     return t;

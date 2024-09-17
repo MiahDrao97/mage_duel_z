@@ -66,7 +66,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
             return err;
         };
         switch (next_token) {
-            Token.comment => {
+            .comment => {
                 readUntilNewlineOrEof(tokens_iter);
                 continue;
             },
