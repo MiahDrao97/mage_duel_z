@@ -472,7 +472,7 @@ pub const UnaryExpression = struct {
     op: Token,
     allocator: Allocator,
 
-    pub fn new(allocator: Allocator, rhs: Expression, op: Token) Error!*UnaryExpression {
+    pub fn new(allocator: Allocator, rhs: Expression, op: Token) ParseError!*UnaryExpression {
         const ptr: *UnaryExpression = try allocator.create(UnaryExpression);
         errdefer allocator.destroy(ptr);
 

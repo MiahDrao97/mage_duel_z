@@ -124,9 +124,9 @@ pub const Result = union(enum) {
                     result_type = 6;
                     var ptr: usize = undefined;
                     switch (identifier) {
-                        Symbol.value => |v| ptr = @intFromPtr(v),
-                        Symbol.function => |f| ptr = @intFromPtr(f),
-                        Symbol.complex_object => |o| ptr = @intFromPtr(o)
+                        .value => |v| ptr = @intFromPtr(v),
+                        .function => |f| ptr = @intFromPtr(f),
+                        .complex_object => |o| ptr = @intFromPtr(o)
                     }
                     const bytes: [@sizeOf(usize)]u8 = std.mem.toBytes(ptr);
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
@@ -227,9 +227,7 @@ pub const ListResult = struct {
             i += 1;
         }
 
-        const new_list: ListResult = try from(self.allocator, new_results);
-        
-        return new_list;
+        return try from(self.allocator, new_results);
     }
 
     /// Takes two `ListResult`'s, combining their items, but only items not already contained in `self`.
@@ -259,7 +257,7 @@ pub const ListResult = struct {
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
-        return try ListResult.from(self.allocator, copied_items);
+        return try from(self.allocator, copied_items);
     }
 
     /// Creates a new `ListResult` with `item` at the end.
@@ -280,8 +278,7 @@ pub const ListResult = struct {
         }
         new_results[i] = new;
 
-        const new_list: ListResult = try from(self.allocator, new_results);
-        return new_list;
+        return try from(self.allocator, new_results);
     }
 
     /// Creates a new `ListResult` with `item` at the end, ensuring each element is unique.
@@ -306,7 +303,7 @@ pub const ListResult = struct {
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
-        return try ListResult.from(self.allocator, copied_items);
+        return try from(self.allocator, copied_items);
     }
 
     /// Creates a new `ListResult` with items in `other` removed from `self`.
@@ -338,7 +335,7 @@ pub const ListResult = struct {
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, combined_items);
 
-        return try ListResult.from(self.allocator, copied_items);
+        return try from(self.allocator, copied_items);
     }
 
     /// Creates a new `ListResult` with `to_remove` removed from `self`.
@@ -365,7 +362,7 @@ pub const ListResult = struct {
         errdefer self.allocator.free(copied_items);
         @memcpy(copied_items, keys);
 
-        return try ListResult.from(self.allocator, copied_items);
+        return try from(self.allocator, copied_items);
     }
 
     pub fn deinit(self: *ListResult) void {

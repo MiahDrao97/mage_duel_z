@@ -70,9 +70,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
                 readUntilNewlineOrEof(tokens_iter);
                 continue;
             },
-            else => {
-                try tokens_list.append(next_token);
-            }
+            else => try tokens_list.append(next_token)
         }
     }
 

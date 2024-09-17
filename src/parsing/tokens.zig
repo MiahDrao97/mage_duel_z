@@ -55,7 +55,7 @@ pub const StringToken = struct {
     allocator: Allocator,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
-    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!StringToken {
+    pub fn from(allocator: Allocator, str: []const u8) Allocator.Error!StringToken {
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
         @memcpy(str_copy, str);
 
@@ -65,7 +65,7 @@ pub const StringToken = struct {
         };
     }
 
-    pub fn clone(self: StringToken) ParseTokenError!StringToken {
+    pub fn clone(self: StringToken) Allocator.Error!StringToken {
         return from(self.allocator, self.value);
     }
 
@@ -82,11 +82,10 @@ pub const NumericToken = struct {
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!NumericToken {
-        const str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
-        @memcpy(str_copy, str);
+        const num: u16 = try std.fmt.parseUnsigned(u16, str, 10);
 
-        const num: u16 = try std.fmt.parseUnsigned(u16, str_copy, 10);
+        const str_copy: []u8 = try allocator.alloc(u8, str.len);
+        @memcpy(str_copy, str);
 
         return NumericToken {
             .string_value = str_copy,
@@ -95,8 +94,15 @@ pub const NumericToken = struct {
         };
     }
 
-    pub fn clone(self: NumericToken) ParseTokenError!NumericToken {
-        return from(self.allocator, self.string_value);
+    pub fn clone(self: NumericToken) Allocator.Error!NumericToken {
+        const str_copy: []u8 = try self.allocator.alloc(u8, self.string_value.len);
+        @memcpy(str_copy, self.string_value);
+
+        return NumericToken {
+            .string_value = str_copy,
+            .value = self.value,
+            .allocator = self.allocator
+        };
     }
 
     pub fn deinit(self: *NumericToken) void {
@@ -131,8 +137,15 @@ pub const BooleanToken = struct {
         };
     }
 
-    pub fn clone(self: BooleanToken) ParseTokenError!BooleanToken {
-        return from(self.allocator, self.string_value);
+    pub fn clone(self: BooleanToken) Allocator.Error!BooleanToken {
+        const str_copy: []u8 = try self.allocator.alloc(u8, self.string_value.len);
+        @memcpy(str_copy, self.string_value);
+
+        return BooleanToken {
+            .string_value = str_copy,
+            .value = self.value,
+            .allocator = self.allocator
+        };
     }
 
     pub fn deinit(self: *BooleanToken) void {
@@ -161,8 +174,15 @@ pub const DamageTypeToken = struct {
         return ParseTokenError.ParseDamageTypeError;        
     }
 
-    pub fn clone(self: DamageTypeToken) ParseTokenError!DamageTypeToken {
-        return from(self.allocator, self.string_value);
+    pub fn clone(self: DamageTypeToken) Allocator.Error!DamageTypeToken {
+        const str_copy: []u8 = try self.allocator.alloc(u8, self.string_value.len);
+        @memcpy(str_copy, self.string_value);
+
+        return DamageTypeToken {
+            .string_value = str_copy,
+            .value = self.value,
+            .allocator = self.allocator
+        };
     }
 
     pub fn deinit(self: *DamageTypeToken) void {
@@ -193,7 +213,6 @@ pub const DiceToken = struct {
         }
 
         const str_copy: []u8 = try allocator.alloc(u8, str.len);
-        errdefer allocator.free(str_copy);
         @memcpy(str_copy, str);
 
         return DiceToken {
@@ -207,8 +226,15 @@ pub const DiceToken = struct {
         return Dice.new(self.sides) catch unreachable;
     }
 
-    pub fn clone(self: DiceToken) ParseTokenError!DiceToken {
-        return from(self.allocator, self.string_value);
+    pub fn clone(self: DiceToken) Allocator.Error!DiceToken {
+        const str_copy: []u8 = try self.allocator.alloc(u8, self.string_value.len);
+        @memcpy(str_copy, self.string_value);
+
+        return DiceToken {
+            .string_value = str_copy,
+            .sides = self.sides,
+            .allocator = self.allocator
+        };
     }
 
     pub fn deinit(self: *DiceToken) void {
@@ -252,7 +278,7 @@ pub const Token = union(enum) {
     }
 
     /// Allocates a clone of `self`, except in the cases of `comment` or `eof`, which just return `self`.
-    pub fn clone(self: Token) ParseTokenError!Token {
+    pub fn clone(self: Token) Allocator.Error!Token {
         switch (self) {
             .identifier => |i| return .{ .identifier = try i.clone() },
             .numeric => |n| return .{ .numeric = try n.clone() },
