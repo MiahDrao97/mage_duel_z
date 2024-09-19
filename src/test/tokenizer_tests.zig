@@ -13,7 +13,7 @@ const TestError = error {
 
 test "tokenize whitespace" {
     const script = "     \n";
-    const tokenizer = Tokenizer.init(testing.allocator);
+    const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
     const tokens: []Token = try tokenizer.tokenize(script);
     defer testing.allocator.free(tokens);
@@ -23,7 +23,7 @@ test "tokenize whitespace" {
 }
 test "tokenize numeric" {
     const script = "4";
-    const tokenizer = Tokenizer.init(testing.allocator);
+    const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
     const tokens: []Token = try tokenizer.tokenize(script);
     defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -37,7 +37,7 @@ test "tokenize numeric" {
 test "tokenize boolean" {
     {
         const script = "false";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -50,7 +50,7 @@ test "tokenize boolean" {
     }
     {
         const script = "true";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -65,7 +65,7 @@ test "tokenize boolean" {
 test "tokenize damage type" {
     {
         const script = "fire";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -78,7 +78,7 @@ test "tokenize damage type" {
     }
     {
         const script = "lightning";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -91,7 +91,7 @@ test "tokenize damage type" {
     }
     {
         const script = "divine";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -104,7 +104,7 @@ test "tokenize damage type" {
     }
     {
         const script = "force";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -117,7 +117,7 @@ test "tokenize damage type" {
     }
     {
         const script = "acid";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -130,7 +130,7 @@ test "tokenize damage type" {
     }
     {
         const script = "necrotic";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -143,7 +143,7 @@ test "tokenize damage type" {
     }
     {
         const script = "ice";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -156,7 +156,7 @@ test "tokenize damage type" {
     }
     {
         const script = "psychic";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -171,7 +171,7 @@ test "tokenize damage type" {
 test "tokenize identifier" {
     {
         const script = "$";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -183,7 +183,7 @@ test "tokenize identifier" {
     }
     {
         const script = "_";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -195,7 +195,7 @@ test "tokenize identifier" {
     }
     {
         const script = "$my_var";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -209,7 +209,7 @@ test "tokenize identifier" {
 test "tokenize syntax" {
     {
         const script = "!";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -221,7 +221,7 @@ test "tokenize syntax" {
     }
     {
         const script = "+!";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -233,7 +233,7 @@ test "tokenize syntax" {
     }
     {
         const script = "+ !";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -247,7 +247,7 @@ test "tokenize syntax" {
     }
     {
         const script = "=> >= <= == ~=";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -269,7 +269,7 @@ test "tokenize syntax" {
 test "tokenize comment" {
     {
         const script = "// this is a comment";
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -289,7 +289,7 @@ test "tokenize real script" {
         \\  1d6+4 fire => $;
         \\}
         ;
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
 
         const tokens: []Token = try tokenizer.tokenize(script);
         defer Token.deinitAllAndFree(testing.allocator, tokens);
@@ -395,7 +395,7 @@ test "tokenize real script" {
         defer arena.deinit();
 
         // all freeing is handled by the arena
-        const tokenizer = Tokenizer.init(arena.allocator());
+        const tokenizer: Tokenizer = .{ .allocator = arena.allocator() };
         _ = try tokenizer.tokenize(script);
     }
 }

@@ -304,10 +304,11 @@ pub const Token = union(enum) {
     pub fn toString(this: Token) ?[]const u8 {
         return switch (this) {
             .identifier, .symbol => |x| x.value,
-            .numeric => |x| x.string_value,
-            .boolean => |x| x.string_value,
-            .dice => |x| x.string_value,
-            .damage_type => |x| x.string_value,
+            inline
+                .numeric,
+                .boolean,
+                .dice,
+                .damage_type => |x| x.string_value,
             else => null
         };
     }

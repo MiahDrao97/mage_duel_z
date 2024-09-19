@@ -83,7 +83,10 @@ test "where" {
     {
         var odds: [3]u8 = [_]u8 { 1, 3, 5 };
         var inner = try Iterator(u8).from(testing.allocator, &odds);
-        var iter = try inner.where(&isEven);
+        var iter = inner.where(&isEven) catch |err| {
+            inner.deinit();
+            return err;
+        };
         defer iter.deinit();
 
         try testing.expect(iter.len() == 3);
@@ -146,9 +149,17 @@ test "concat" {
     {
         var nums1: [3]u8 = [_]u8 { 1, 2, 3 };
         var nums2: [3]u8 = [_]u8 { 4, 5, 6 };
-        const a = try Iterator(u8).from(testing.allocator, &nums1);
-        const b = try Iterator(u8).from(testing.allocator, &nums2);
-        var iter = try a.concat(b);
+
+        var iter: Iterator(u8) = undefined;
+        {
+            const a = try Iterator(u8).from(testing.allocator, &nums1);
+            errdefer a.deinit();
+
+            const b = try Iterator(u8).from(testing.allocator, &nums2);
+            errdefer b.deinit();
+
+            iter = try a.concat(b);
+        }
 
         var new_iter: Iterator(u8) = undefined;
         {

@@ -26,14 +26,14 @@ test "parse() list literal" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -64,14 +64,14 @@ test "parse() list literal" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -95,14 +95,14 @@ test "parse() additive expressions" {
     {
         const script: []const u8 = "[0]: { $ = 1 + 1; }";
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -121,14 +121,14 @@ test "parse() additive expressions" {
     {
         const script: []const u8 = "[0]: { $ = 1 - 2; }";
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -153,14 +153,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -188,14 +188,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -226,14 +226,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -264,14 +264,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -302,14 +302,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -338,14 +338,14 @@ test "parse() list-literal, additive expression combo" {
             \\}
             ;
 
-        const tokenizer = Tokenizer.init(testing.allocator);
+        const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
 
         var card_def: *CardDef = undefined;
         {
             defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-            const parser: Parser = Parser.init(testing.allocator);
+            const parser: Parser = .{ .allocator = testing.allocator };
             card_def = try parser.parseTokens(tokens);
         }
         defer card_def.deinit();
@@ -380,14 +380,14 @@ test "parse() Firebolt" {
         \\}
         ;
 
-    const tokenizer = Tokenizer.init(testing.allocator);
+    const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
     const tokens: []Token = try tokenizer.tokenize(script);
 
     var card_def: *CardDef = undefined;
     {
         defer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        const parser: Parser = Parser.init(testing.allocator);
+        const parser: Parser = .{ .allocator = testing.allocator };
         card_def = try parser.parseTokens(tokens);
     }
     defer card_def.deinit();

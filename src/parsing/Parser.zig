@@ -44,12 +44,6 @@ pub const Parser = @This();
 
 allocator: Allocator,
 
-/// This structure does not own the memory produced by `parseTokens`.
-/// Thus, no `deinit()` method is defined.
-pub fn init(allocator: Allocator) Parser {
-    return .{ .allocator = allocator };
-}
-
 pub fn parseTokens(self: Parser, to_parse: []Token) !*CardDef {
     var actions = try ArrayList(*ActionDefinitionStatement).initCapacity(self.allocator, to_parse.len);
     defer actions.deinit();

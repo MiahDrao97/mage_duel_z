@@ -121,7 +121,7 @@ pub fn Iterator(comptime T: type) type {
         };
 
         const SliceIterator = struct {
-            i: isize = 0,
+            i: usize = 0,
             inner: []const T,
             owns_slice: bool = false,
             on_deinit: ?*const fn ([]T) void = null,
@@ -131,7 +131,7 @@ pub fn Iterator(comptime T: type) type {
 
             fn implNext(impl: *anyopaque) ?T {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                if (self.i < 0 or self.i >= self.inner.len) {
+                if (self.i >= self.inner.len) {
                     return null;
                 }
                 
@@ -143,7 +143,7 @@ pub fn Iterator(comptime T: type) type {
 
             fn implSetIndex(impl: *anyopaque, index: usize) void {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                self.i = @bitCast(index);
+                self.i = index;
             }
 
             fn implReset(impl: *anyopaque) void {
@@ -152,9 +152,12 @@ pub fn Iterator(comptime T: type) type {
 
             fn implScroll(impl: *anyopaque, amount: isize) void {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
-                self.i += amount;
-                if (self.i < 0) {
+                var temp: isize = @bitCast(self.i);
+                temp += amount;
+                if (temp <= 0) {
                     self.i = 0;
+                } else {
+                    self.i = @bitCast(temp);
                 }
             }
 
@@ -454,8 +457,8 @@ pub fn Iterator(comptime T: type) type {
         /// For the full enumeration, you may need to call `reset()`.
         /// Note that `self` may need to be deallocated via calling `deinit()` or reset for later enumeration.
         /// 
-        /// Returns the length written to the buffer.
-        pub fn enumerateToBuffer(self: Self, buf: []T) error{NoSpaceLeft}!usize {
+        /// Returns a slice containing the full enumeration.
+        pub fn enumerateToBuffer(self: Self, buf: []T) error{NoSpaceLeft}![]T {
             if (buf.len < self.len()) {
                 return error.NoSpaceLeft;
             }
@@ -465,7 +468,7 @@ pub fn Iterator(comptime T: type) type {
                 buf[i] = x;
                 i += 1;
             }
-            return i;
+            return buf[0..i];
         }
 
         /// Enumerates into a new slice.
@@ -487,17 +490,11 @@ pub fn Iterator(comptime T: type) type {
                 return buf;
             }
 
+            defer self.allocator.free(buf);
+
             // pair buf down to final slice
-            const final: []T = self.allocator.alloc(T, i) catch |err| {
-                self.allocator.free(buf);
-                return err;
-            };
-
-            for (0..i) |j| {
-                final[j] = buf[j];
-            }
-
-            self.allocator.free(buf);
+            const final: []T = try self.allocator.alloc(T, i);
+            @memcpy(final, buf[0..i]);
 
             return final;
         }
