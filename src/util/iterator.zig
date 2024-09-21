@@ -1,6 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+pub const Ordering = enum { asc, desc };
+
+pub const ComparerResult = enum {
+    less_than,
+    equal,
+    greater_than
+};
+
 /// Generic iterator interface for type `T`.
 /// Use `from()` or `fromSliceOwned()` to create an instance from a slice.
 pub fn Iterator(comptime T: type) type {
@@ -124,7 +132,7 @@ pub fn Iterator(comptime T: type) type {
             i: usize = 0,
             inner: []const T,
             owns_slice: bool = false,
-            on_deinit: ?*const fn ([]T) void = null,
+            on_deinit: ?*const fn (T) void = null,
             allocator: Allocator,
 
             const InnerSelf = @This();
@@ -193,8 +201,10 @@ pub fn Iterator(comptime T: type) type {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
                 if (self.owns_slice) {
                     if (self.on_deinit) |on_deinit_fn| {
-                        // const-cast here since the deinit function can't possibly take in a []const T slice
-                        on_deinit_fn(@constCast(self.inner));
+                        for (self.inner) |item| {
+                            // const-cast here since the deinit function can't possibly take in a []const T slice
+                            on_deinit_fn(item);
+                        }
                     }
                     self.allocator.free(self.inner);
                 }
@@ -250,7 +260,7 @@ pub fn Iterator(comptime T: type) type {
         pub fn fromSliceOwned(
             allocator: Allocator,
             slice: []const T,
-            on_deinit: ?*const fn ([]T) void
+            on_deinit: ?*const fn (T) void
         ) Allocator.Error!Self {
             const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
             iter_ptr.* = .{
@@ -510,7 +520,7 @@ pub fn Iterator(comptime T: type) type {
         /// Use this method when you need an `Iterator(T)` with indexing, but the indexing on `iter` was lost due to calling methods like `where()` or `concat()`.
         /// Apart from that specific scenario, avoid calling this method since reindexing costs time and memory.
         /// If enumeration results are required, see if it can be done by converting the results to a slice, like `enumerateToBuffer()` or `toOwnedSlice()`.
-        pub fn rebuild(iter: Self, on_deinit: ?*const fn ([]T) void) Allocator.Error!Self {
+        pub fn rebuild(iter: Self, on_deinit: ?*const fn (T) void) Allocator.Error!Self {
             const slice: []T = try iter.toOwnedSlice();
             errdefer iter.allocator.free(slice);
 
@@ -617,6 +627,105 @@ pub fn Iterator(comptime T: type) type {
             };
 
             return iter_ptr.iter();
+        }
+
+        fn partition(
+            slice: []T,
+            left: usize,
+            right: usize,
+            comparer_fn: *const fn (T, T) ComparerResult,
+            ordering: Ordering
+        ) usize {
+            // i must be an isize because it's allowed to -1 at the beginning
+            var i: isize = @as(isize, @bitCast(left)) - 1;
+
+            const pivot: T = slice[right];
+            std.log.debug("Left = {d}. Pivot at index[{d}]: {any}", .{ left, right, pivot });
+            for (left..right) |j| {
+                std.log.debug("Index[{d}]: Comparing {any} to pivot {any}", .{ j, slice[j], pivot });
+                switch (ordering) {
+                    .asc => {
+                        switch(comparer_fn(pivot, slice[j])) {
+                            .greater_than => {
+                                i += 1;
+                                swap(slice, @bitCast(i), j);
+                            },
+                            else => { }
+                        }
+                    },
+                    .desc => {
+                        switch(comparer_fn(pivot, slice[j])) {
+                            .less_than => {
+                                i += 1;
+                                swap(slice, @bitCast(i), j);
+                            },
+                            else => { }
+                        }
+                    }
+                }
+            }
+            swap(slice, @bitCast(i + 1), right);
+            return @bitCast(i + 1);
+        }
+
+        fn swap(slice: []T, left: usize, right: usize) void {
+            if (left >= slice.len) {
+                std.log.debug("Left-hand index exceeds slice side.", .{});
+                return;
+            }
+            if (left == right) {
+                std.log.debug("Indexes are equal. No swap operation taking place.", .{});
+                return;
+            }
+            std.log.debug("Slice snapshot: [{any}] =>", .{ slice });
+            const temp: T = slice[left];
+
+            slice[left] = slice[right];
+            slice[right] = temp;
+
+            std.log.debug("                [{any}]", .{ slice });
+        }
+
+        fn sort(
+            slice: []T,
+            left: usize,
+            right: usize,
+            comparer_fn: *const fn (T, T) ComparerResult,
+            ordering: Ordering,
+            iteration: *usize
+        ) void {
+            if (right <= left) {
+                return;
+            }
+
+            std.log.debug("sort(left: {d}, right: {d}, iteration: {d})", .{ left, right, iteration.* });
+            if (iteration.* >= slice.len * std.math.log2(slice.len)) {
+                // mathmatically, this is O(n*log(n)), so if we exceed that proportion, I probably coded it wrong and we'll overflow
+                std.debug.panic("Exceeded max iterations (slice length = {d}, iterations = {d}). Will run into stack overflow.", .{ slice.len, iteration.* });
+            }
+
+            const partition_point: usize = partition(slice, left, right, comparer_fn, ordering);
+            iteration.* += 1;
+
+            sort(slice, left, partition_point -| 1, comparer_fn, ordering, iteration);
+            sort(slice, partition_point + 1, right, comparer_fn, ordering, iteration);
+        }
+
+        pub fn orderBy(
+            self: Self,
+            order_fn: *const fn (T, T) ComparerResult,
+            ordering: Ordering,
+            on_deinit: ?*const fn (T) void
+        ) Allocator.Error!Self {
+            const slice: []T = try self.toOwnedSlice();
+            errdefer self.allocator.free(slice);
+
+            var i: usize = 0;
+            sort(slice, 0, slice.len - 1, order_fn, ordering, &i);
+
+            const new: Self = try fromSliceOwned(self.allocator, slice, on_deinit);
+            self.deinit();
+            return new;
         }
     };
 }

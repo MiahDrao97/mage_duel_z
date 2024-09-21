@@ -8,15 +8,27 @@ pub fn Deck(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        elements:       Iterator(T),
-        allocator:      Allocator,
+        elements: Iterator(T),
+
+        /// Assumed that this deck owns `elements`. To free, call `deinit()`.
+        pub fn init(elements: Iterator(T)) error{NonIndexingIterator}!Self {
+            if (!elements.hasIndexing()) {
+                return error.NonIndexingIterator;
+            }
+            return Self { .elements = elements };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.elements.deinit();
+            self.* = undefined;
+        }
 
         pub fn draw(self: Self) ?T {
             return self.elements.next();
         }
 
-        pub fn drawMany(self: Self, amt: usize) Allocator.Error![]T {
-            const items: []T = try self.allocator.alloc(T, amt);
+        pub fn drawMany(self: Self, allocator: Allocator, amt: usize) Allocator.Error![]T {
+            const items: []T = try allocator.alloc(T, amt);
 
             var i: usize = 0;
             while (self.draw()) |x| {
@@ -29,9 +41,9 @@ pub fn Deck(comptime T: type) type {
             }
 
             // if break out of the while loop, we ran out of cards
-            defer self.allocator.free(items);
+            defer allocator.free(items);
 
-            const final: []T = try self.allocator.alloc(T, i);
+            const final: []T = try allocator.alloc(T, i);
             @memcpy(final, items[0..i]);
 
             return final;
@@ -45,8 +57,8 @@ pub fn Deck(comptime T: type) type {
             return null;
         }
 
-        pub fn peekMany(self: Self, amt: usize) []T {
-            const items: []T = try self.allocator.alloc(T, amt);
+        pub fn peekMany(self: Self, allocator: Allocator, amt: usize) []T {
+            const items: []T = try allocator.alloc(T, amt);
 
             var i: usize = 0;
             while (self.elements.next()) |x| {
@@ -61,11 +73,11 @@ pub fn Deck(comptime T: type) type {
 
             // if break out of the while loop, we ran out of cards
             defer {
-                self.allocator.free(items);
+                allocator.free(items);
                 self.elements.scroll(-1 * i);
             }
 
-            const final: []T = try self.allocator.alloc(T, i);
+            const final: []T = try allocator.alloc(T, i);
             @memcpy(final, items[0..i]);
 
             return final;

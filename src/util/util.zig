@@ -1,5 +1,8 @@
 const std = @import("std");
-pub const Iterator = @import("iterator.zig").Iterator;
+const iterator = @import("iterator.zig");
+pub const Iterator = iterator.Iterator;
+pub const ComparerResult = iterator.ComparerResult;
+pub const Ordering = iterator.Ordering;
 
 pub fn isWhiteSpace(char: u8) bool {
     return switch(char) {

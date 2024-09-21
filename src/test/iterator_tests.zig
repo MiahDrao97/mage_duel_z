@@ -1,5 +1,8 @@
-const Iterator = @import("util").Iterator;
 const std = @import("std");
+const util = @import("util");
+const Iterator = util.Iterator;
+const ComparerResult = util.ComparerResult;
+const Ordering = util.Ordering;
 const testing = std.testing;
 
 fn numToStr(num: u8) ![]u8 {
@@ -8,6 +11,16 @@ fn numToStr(num: u8) ![]u8 {
 
 fn isEven(num: u8) bool {
     return num % 2 == 0;
+}
+
+fn compare(a: u8, b: u8) ComparerResult {
+    if (a < b) {
+        return .less_than;
+    } else if (a > b) {
+        return .greater_than;
+    } else {
+        return .equal;
+    }
 }
 
 test "from" {
@@ -230,4 +243,31 @@ test "concat" {
 
         try testing.expect(i == 3);
     }
+}
+test "orderBy" {
+    var nums: [7]u8 = [_]u8 { 2, 5, 7, 1, 6, 4, 3 };
+    var inner = try Iterator(u8).from(testing.allocator, &nums);
+    var iter = try inner.orderBy(&compare, .asc, null);
+    defer iter.deinit();
+
+    var i: usize = 0;
+    while (iter.next()) |x| {
+        i += 1;
+        // should only be the evens
+        try testing.expectEqual(i, x);
+    }
+
+    try testing.expect(i == 7);
+    
+    var inner2 = try Iterator(u8).from(testing.allocator, &nums);
+    var iter2 = try inner2.orderBy(&compare, .desc, null);
+    defer iter2.deinit();
+
+    while (iter2.next()) |x| {
+        // should only be the evens
+        try testing.expectEqual(i, x);
+        i -= 1;
+    }
+
+    try testing.expect(i == 0);
 }
