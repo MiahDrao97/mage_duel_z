@@ -5,7 +5,7 @@ pub const Ordering = enum { asc, desc };
 
 pub const ComparerResult = enum {
     less_than,
-    equal,
+    equal_to,
     greater_than
 };
 
@@ -691,37 +691,27 @@ pub fn Iterator(comptime T: type) type {
             left: usize,
             right: usize,
             comparer_fn: *const fn (T, T) ComparerResult,
-            ordering: Ordering,
-            iteration: *usize
+            ordering: Ordering
         ) void {
             if (right <= left) {
                 return;
             }
-
-            std.log.debug("sort(left: {d}, right: {d}, iteration: {d})", .{ left, right, iteration.* });
-            if (iteration.* >= slice.len * std.math.log2(slice.len)) {
-                // mathmatically, this is O(n*log(n)), so if we exceed that proportion, I probably coded it wrong and we'll overflow
-                std.debug.panic("Exceeded max iterations (slice length = {d}, iterations = {d}). Will run into stack overflow.", .{ slice.len, iteration.* });
-            }
-
             const partition_point: usize = partition(slice, left, right, comparer_fn, ordering);
-            iteration.* += 1;
-
-            sort(slice, left, partition_point -| 1, comparer_fn, ordering, iteration);
-            sort(slice, partition_point + 1, right, comparer_fn, ordering, iteration);
+            sort(slice, left, partition_point -| 1, comparer_fn, ordering);
+            sort(slice, partition_point + 1, right, comparer_fn, ordering);
         }
 
+        /// Rebuilds the iterator into an ordered slice and deinits `self`.
         pub fn orderBy(
             self: Self,
-            order_fn: *const fn (T, T) ComparerResult,
+            comparer_fn: *const fn (T, T) ComparerResult,
             ordering: Ordering,
             on_deinit: ?*const fn (T) void
         ) Allocator.Error!Self {
             const slice: []T = try self.toOwnedSlice();
             errdefer self.allocator.free(slice);
 
-            var i: usize = 0;
-            sort(slice, 0, slice.len - 1, order_fn, ordering, &i);
+            sort(slice, 0, slice.len - 1, comparer_fn, ordering);
 
             const new: Self = try fromSliceOwned(self.allocator, slice, on_deinit);
             self.deinit();

@@ -19,7 +19,7 @@ fn compare(a: u8, b: u8) ComparerResult {
     } else if (a > b) {
         return .greater_than;
     } else {
-        return .equal;
+        return .equal_to;
     }
 }
 
