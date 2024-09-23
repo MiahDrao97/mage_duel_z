@@ -1017,8 +1017,8 @@ pub const TargetExpression = struct {
 
 pub const AccessorExpression = struct {
     pub const Link = union(enum) {
-        function_call: FunctionCall,
-        idententifier: Identifier,
+        function_call: *FunctionCall,
+        identifier: *Identifier,
 
         pub fn getName(self: Link) []const u8 {
             switch (self) {
@@ -1067,7 +1067,7 @@ pub const AccessorExpression = struct {
             switch(current_symbol) {
                 .complex_object => |o| {
                     if (i < self.accessor_chain.len - 1) {
-                        current_symbol = o.getSymbol(member.name) orelse {
+                        current_symbol = o.getSymbol(member.getName()) orelse {
                             std.log.err("Member '{s}' was not found on {s}.", .{ member.name, previous_node_name });
                             return Error.UndefinedIdentifier;
                         };

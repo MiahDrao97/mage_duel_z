@@ -29,6 +29,7 @@ const CardDef = @import("parsing.zig").CardDef;
 const ActionDefinitionStatement = imports.ActionDefinitionStatement;
 const Label = imports.Label;
 const Identifier = imports.Identifier;
+const AccessorExpression = imports.AccessorExpression;
 const FunctionCall = imports.FunctionCall;
 const DamageStatement = imports.DamageStatement;
 const AssignmentStatement = imports.AssignmentStatement;
@@ -298,35 +299,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         const token: Token = try iter.requireOneOf(&[_][]const u8 { "(", "=>", "=" });
 
         if (token.stringEquals("(")) {
-            std.log.debug("Parsing function call", .{});
-            // parse function call
-            var matched_paren: bool = false;
-            var expressions = ArrayList(Expression).init(self.allocator);
-            errdefer {
-                Expression.deinitAll(expressions.items);
-                expressions.deinit();
-            }
-
-            while (iter.peek()) |next| {
-                if (next.stringEquals(")")) {
-                    _ = try iter.require(")");
-                    matched_paren = true;
-                    break;
-                }
-                var expr: Expression = try self.parseExpression(iter);
-                errdefer expr.deinit();
-
-                try expressions.append(expr);
-            }
-            if (!matched_paren) {
-                return error.UnmatchedParen;
-            }
-            _ = try iter.require(";");
-
-            const args: []Expression = try expressions.toOwnedSlice();
-            errdefer Expression.deinitAllAndFree(self.allocator, args);
-
-            var fn_call: *FunctionCall = try FunctionCall.new(self.allocator, identifier.name, args);
+            const fn_call: *FunctionCall = try self.parseFunctionCall(identifier.name, iter);
             return fn_call.stmt();
         } else if (token.stringEquals("=>")) {
             std.log.debug("Parsing damage statement", .{});
@@ -614,4 +587,83 @@ fn parseTargetExpression(self: Parser, iter: TokenIterator, keyword_parsed: bool
     _ = try iter.require(")");
 
     return try TargetExpression.new(self.allocator, amount, pool);
+}
+
+fn parseFunctionCall(self: Parser, name: Token, iter: TokenIterator) !*FunctionCall {
+    std.log.debug("Parsing function call", .{});
+    // parse function call
+    var matched_paren: bool = false;
+    var expressions = ArrayList(Expression).init(self.allocator);
+    errdefer {
+        Expression.deinitAll(expressions.items);
+        expressions.deinit();
+    }
+
+    while (iter.peek()) |next| {
+        if (next.stringEquals(")")) {
+            _ = try iter.require(")");
+            matched_paren = true;
+            break;
+        }
+        var expr: Expression = try self.parseExpression(iter);
+        errdefer expr.deinit();
+
+        try expressions.append(expr);
+    }
+    if (!matched_paren) {
+        return error.UnmatchedParen;
+    }
+    _ = try iter.require(";");
+
+    const args: []Expression = try expressions.toOwnedSlice();
+    errdefer Expression.deinitAllAndFree(self.allocator, args);
+
+    return try FunctionCall.new(self.allocator, name, args);
+}
+
+fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Expression {
+    var chain = ArrayList(AccessorExpression.Link).init(self.allocator);
+    defer chain.deinit();
+
+    while (Identifier.from(self.allocator, iter)) |identifier| {
+        if (iter.nextMatchesSymbol(&[_][]const u8 { ".", "(" })) |tok| {
+            if (tok.stringEquals(".")) {
+                try chain.append(.{ .identifier = identifier });
+                continue;
+            } else if (tok.stringEquals("(")) {
+                // function call
+                try chain.append(.{
+                    .function_call = try self.parseFunctionCall(identifier.name, iter)
+                });
+                if (iter.nextMatchesSymbol(&[_][]const u8 { "." })) |_| {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // all done
+            try chain.append(.{ .identifier = identifier });
+            break;
+        }
+    } else |err| {
+        switch (err) {
+            error.OutOfMemory => {
+                std.log.err("Out of memory while trying to parse identifier.", .{});
+                return err;
+            },
+            else => { } // handles scrolling
+        }
+    }
+
+    // only relevant for accessor expression
+    if (chain.items.len > 2) {
+        const links: []AccessorExpression.Link = try chain.toOwnedSlice();
+        const accessor_expr: *AccessorExpression = try AccessorExpression.new(self.allocator, links);
+        return accessor_expr.expr();
+    } else if (chain.items.len == 1) {
+        // deinit call above should cover this
+        return chain.items[0].expr();
+    }
+    return null;
 }
