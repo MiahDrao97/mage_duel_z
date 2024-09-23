@@ -290,6 +290,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     // assignment statment, damage statement, and function can all start with an identifier
     var dbg_tok: Token = iter.peek() orelse Token.eof;
     std.log.debug("Beginning to parse non-control flow statment with next token: '{s}'", .{ dbg_tok.toString() orelse "<EOF>" });
+    // TODO: Make this an accessor expression
     if (Identifier.from(self.allocator, iter)) |identifier| {
         defer identifier.deinit();
 
@@ -357,10 +358,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
                 std.log.err("Out of memory while trying to parse identifier.", .{});
                 return err;
             },
-            else => {
-                // roll back 1 token (it wasn't an identifier)
-                iter.internal_iter.scroll(-1);
-            }
+            else => { } // handles scrolling
         }
     }
     if (DiceLiteral.from(self.allocator, iter)) |dice| {
@@ -588,9 +586,7 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression
                     std.log.err("Out of memory while trying to parse identifier.", .{});
                     return err;
                 },
-                else => {
-                    iter.internal_iter.scroll(-1);
-                }
+                else => { } // handles scrolling
             }
         }
     }

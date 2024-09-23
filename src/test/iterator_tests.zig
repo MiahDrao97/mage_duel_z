@@ -2,7 +2,6 @@ const std = @import("std");
 const util = @import("util");
 const Iterator = util.Iterator;
 const ComparerResult = util.ComparerResult;
-const Ordering = util.Ordering;
 const testing = std.testing;
 
 fn numToStr(num: u8) ![]u8 {

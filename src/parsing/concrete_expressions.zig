@@ -415,7 +415,10 @@ pub const Identifier = struct {
     allocator: Allocator,
 
     pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*Identifier {
-        const identifier_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+        const identifier_token: Token = iter.requireType(&[_][]const u8 { @tagName(Token.identifier) }) catch |err| {
+            iter.internal_iter.scroll(-1);
+            return err;
+        };
         
         const ptr: *Identifier = try allocator.create(Identifier);
         errdefer allocator.destroy(ptr);
