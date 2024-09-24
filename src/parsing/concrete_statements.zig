@@ -72,23 +72,23 @@ pub const FunctionCall = struct {
 
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
-        const function_sym: Symbol = symbol_table.getSymbol(self.name)
-            orelse return error.FunctionDefinitionNotFound;
+        const function_sym: Symbol = symbol_table.getSymbol(self.name.toString().?)
+            orelse return Error.FunctionDefinitionNotFound;
 
         const function_def: FunctionDef = function_sym.unwrapFunction() catch {
-            return error.FunctionDefinitionNotFound;
+            return Error.FunctionDefinitionNotFound;
         };
 
-        const args_list: []Result = symbol_table.allocator.alloc(Result, self.args.len);
+        const args_list: []Result = try symbol_table.allocator.alloc(Result, self.args.len);
         defer symbol_table.allocator.free(args_list);
         
         for (self.args, 0..) |arg, i| {
             args_list[i] = try arg.evaluate(symbol_table);
         }
 
-        return function_def(args_list) catch |err| {
+        return function_def(symbol_table.current_scope.obj_ptr, args_list) catch |err| {
             std.log.err("Caught error while executing '{s}(...)': {any}-->\n{any}", .{
-                self.name,
+                self.name.toString().?,
                 err,
                 @errorReturnTrace().?
             });

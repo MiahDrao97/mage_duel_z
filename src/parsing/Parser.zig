@@ -45,8 +45,8 @@ pub const Parser = @This();
 
 allocator: Allocator,
 
-pub fn parseTokens(self: Parser, to_parse: []Token) !*CardDef {
-    var actions = try ArrayList(*ActionDefinitionStatement).initCapacity(self.allocator, to_parse.len);
+pub fn parseTokens(self: Parser, iter: TokenIterator) !*CardDef {
+    var actions = try ArrayList(*ActionDefinitionStatement).initCapacity(self.allocator, iter.internal_iter.len());
     defer actions.deinit();
     errdefer {
         for (actions.items) |action| {
@@ -56,9 +56,6 @@ pub fn parseTokens(self: Parser, to_parse: []Token) !*CardDef {
 
     var labels = ArrayList(Label).init(self.allocator);
     defer labels.deinit();
-
-    var iter: TokenIterator = try TokenIterator.from(self.allocator, to_parse);
-    defer iter.deinit();
 
     // topmost level
     while (iter.peek()) |next| {
@@ -550,17 +547,8 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression
             return label.expr();
         } else |_| { }
 
-        // TODO: Make this an accessor expression
-        if (Identifier.from(self.allocator, iter)) |identifier| {
-            return identifier.expr();
-        } else |err| {
-            switch (err) {
-                error.OutOfMemory => {
-                    std.log.err("Out of memory while trying to parse identifier.", .{});
-                    return err;
-                },
-                else => { } // handles scrolling
-            }
+        if (try self.parseIdentifierOrAccessorChain(iter)) |expr| {
+            return expr;
         }
     }
     const next_tok: Token = iter.peek() orelse Token.eof;
@@ -641,6 +629,7 @@ fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Expressio
                     break;
                 }
             }
+            unreachable;
         } else {
             // all done
             try chain.append(.{ .identifier = identifier });

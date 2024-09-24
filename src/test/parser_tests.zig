@@ -13,6 +13,7 @@ const SymbolTable = parsing.SymbolTable;
 const FunctionDef = parsing.FunctionDef;
 const ExpressionResult = parsing.ExpressionResult;
 const DamageType = game_zones.types.DamageType;
+const TokenIterator = parsing.TokenIterator;
 
 // result types
 const IntResult = parsing.IntResult;
@@ -28,14 +29,13 @@ test "parse() list literal" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -66,14 +66,13 @@ test "parse() list literal" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -97,14 +96,13 @@ test "parse() additive expressions" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -123,14 +121,13 @@ test "parse() additive expressions" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -155,14 +152,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -190,14 +186,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -228,14 +223,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -266,14 +260,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -304,14 +297,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -340,14 +332,13 @@ test "parse() list-literal, additive expression combo" {
 
         const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
         const tokens: []Token = try tokenizer.tokenize(script);
+        errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-        var card_def: *CardDef = undefined;
-        {
-            defer Token.deinitAllAndFree(testing.allocator, tokens);
+        var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+        defer iter.deinit();
 
-            const parser: Parser = .{ .allocator = testing.allocator };
-            card_def = try parser.parseTokens(tokens);
-        }
+        const parser: Parser = .{ .allocator = testing.allocator };
+        const card_def: *CardDef = try parser.parseTokens(iter);
         defer card_def.deinit();
 
         var sym_table: SymbolTable = try SymbolTable.new(testing.allocator);
@@ -382,14 +373,13 @@ test "parse() Firebolt" {
 
     const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
     const tokens: []Token = try tokenizer.tokenize(script);
+    errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-    var card_def: *CardDef = undefined;
-    {
-        defer Token.deinitAllAndFree(testing.allocator, tokens);
+    var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+    defer iter.deinit();
 
-        const parser: Parser = .{ .allocator = testing.allocator };
-        card_def = try parser.parseTokens(tokens);
-    }
+    const parser: Parser = .{ .allocator = testing.allocator };
+    const card_def: *CardDef = try parser.parseTokens(iter);
     defer card_def.deinit();
 
     try testing.expect(card_def.labels.len == 3);

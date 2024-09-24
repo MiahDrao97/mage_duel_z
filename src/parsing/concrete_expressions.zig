@@ -1022,7 +1022,7 @@ pub const AccessorExpression = struct {
 
         pub fn getName(self: Link) []const u8 {
             switch (self) {
-                inline else => |x| return x.name
+                inline else => |x| return x.name.toString().?
             }
         }
 
@@ -1068,17 +1068,22 @@ pub const AccessorExpression = struct {
                 .complex_object => |o| {
                     if (i < self.accessor_chain.len - 1) {
                         current_symbol = o.getSymbol(member.getName()) orelse {
-                            std.log.err("Member '{s}' was not found on {s}.", .{ member.name, previous_node_name });
+                            std.log.err("Member '{s}' was not found on {s}.", .{ member.getName(), previous_node_name });
                             return Error.UndefinedIdentifier;
                         };
                     } else {
-                        return .{ .identifier = o.* };
+                        return .{
+                            .identifier = .{
+                                .complex_object = o
+                            }
+                        };
                     }
                 },
                 .function => |_| {
                     if (i < self.accessor_chain.len - 1) {
                         // function args are stored on the member, so just evaluate
-                        current_symbol = try member.expr().evaluate();
+                        const result: Result = try member.expr().evaluate(symbol_table);
+                        current_symbol = try result.expectType(Symbol);
                     } else {
                         // can't return a function
                         return Error.HigherOrderFunctionsNotSupported;
@@ -1092,6 +1097,7 @@ pub const AccessorExpression = struct {
                 }
             }
         }
+        unreachable;
     }
 
     fn implDeinit(impl: *anyopaque) void {

@@ -399,7 +399,7 @@ pub const TokenIterator = struct {
     internal_iter: Iterator(Token),
 
     pub fn from(allocator: Allocator, tokens: []Token) Allocator.Error!TokenIterator {
-        const iter: Iterator(Token) = try Iterator(Token).from(allocator, tokens);
+        const iter: Iterator(Token) = try Iterator(Token).fromSliceOwned(allocator, tokens, &Token.deinitAll);
 
         return .{ .internal_iter = iter };
     }
@@ -466,5 +466,6 @@ pub const TokenIterator = struct {
 
     pub fn deinit(self: *TokenIterator) void {
         self.internal_iter.deinit();
+        self.* = undefined;
     }
 };

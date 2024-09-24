@@ -132,7 +132,7 @@ pub fn Iterator(comptime T: type) type {
             i: usize = 0,
             inner: []const T,
             owns_slice: bool = false,
-            on_deinit: ?*const fn (T) void = null,
+            on_deinit: ?*const fn ([]T) void = null,
             allocator: Allocator,
 
             const InnerSelf = @This();
@@ -201,10 +201,8 @@ pub fn Iterator(comptime T: type) type {
                 const self: *InnerSelf = @ptrCast(@alignCast(impl));
                 if (self.owns_slice) {
                     if (self.on_deinit) |on_deinit_fn| {
-                        for (self.inner) |item| {
-                            // const-cast here since the deinit function can't possibly take in a []const T slice
-                            on_deinit_fn(item);
-                        }
+                        // const-cast here since the deinit function can't possibly take in a []const T slice
+                        on_deinit_fn(@constCast(self.inner));
                     }
                     self.allocator.free(self.inner);
                 }
@@ -260,7 +258,7 @@ pub fn Iterator(comptime T: type) type {
         pub fn fromSliceOwned(
             allocator: Allocator,
             slice: []const T,
-            on_deinit: ?*const fn (T) void
+            on_deinit: ?*const fn ([]T) void
         ) Allocator.Error!Self {
             const iter_ptr: *SliceIterator = try allocator.create(SliceIterator);
             iter_ptr.* = .{
@@ -520,7 +518,7 @@ pub fn Iterator(comptime T: type) type {
         /// Use this method when you need an `Iterator(T)` with indexing, but the indexing on `iter` was lost due to calling methods like `where()` or `concat()`.
         /// Apart from that specific scenario, avoid calling this method since reindexing costs time and memory.
         /// If enumeration results are required, see if it can be done by converting the results to a slice, like `enumerateToBuffer()` or `toOwnedSlice()`.
-        pub fn rebuild(iter: Self, on_deinit: ?*const fn (T) void) Allocator.Error!Self {
+        pub fn rebuild(iter: Self, on_deinit: ?*const fn ([]T) void) Allocator.Error!Self {
             const slice: []T = try iter.toOwnedSlice();
             errdefer iter.allocator.free(slice);
 
@@ -706,7 +704,7 @@ pub fn Iterator(comptime T: type) type {
             self: Self,
             comparer_fn: *const fn (T, T) ComparerResult,
             ordering: Ordering,
-            on_deinit: ?*const fn (T) void
+            on_deinit: ?*const fn ([]T) void
         ) Allocator.Error!Self {
             const slice: []T = try self.toOwnedSlice();
             errdefer self.allocator.free(slice);

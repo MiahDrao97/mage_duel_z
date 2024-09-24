@@ -15,6 +15,7 @@ pub const ListResult = expression.ListResult;
 pub const ExpressionErr = expression.Error;
 pub const concrete_expressions = @import("concrete_expressions.zig");
 pub const Token = tokens.Token;
+pub const TokenIterator = tokens.TokenIterator;
 pub const StringToken = tokens.StringToken;
 pub const NumericToken = tokens.NumericToken;
 pub const BooleanToken = tokens.BooleanToken;

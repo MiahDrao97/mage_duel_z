@@ -632,6 +632,7 @@ const InnerError = error {
     MustBePositiveInteger,
     InvalidAccessorChain,
     PrematureAccessorTerminus,
+    FunctionDefinitionNotFound,
     FunctionInvocationFailed,
     HigherOrderFunctionsNotSupported,
     InvalidInnerExpression,
