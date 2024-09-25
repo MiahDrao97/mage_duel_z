@@ -332,14 +332,16 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     // assignment statment, damage statement, and function can all start with an identifier
     var dbg_tok: Token = iter.peek() orelse Token.eof;
     std.log.debug("Beginning to parse non-control flow statment with next token: '{s}'", .{ dbg_tok.toString() orelse "<EOF>" });
-    // TODO: Make this an accessor expression
-    if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
-        defer ref_expr.deinit();
 
+    if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
         // it all comes down to the next token...
-        const token: Token = try iter.requireOneOf(&[_][]const u8 { "=>", "=" });
+        const token: Token = iter.requireOneOf(&[_][]const u8 { "=>", "=" }) catch |err| {
+            ref_expr.deinit();
+            return err;
+        };
 
         if (token.stringEquals("=>")) {
+            errdefer ref_expr.deinit();
             std.log.debug("Parsing damage statement", .{});
 
             // damage statement
@@ -348,10 +350,12 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
 
             _ = try iter.require(";");
 
-            // no allocator needed for this one
             const dmg: *DamageStatement = try DamageStatement.new(self.allocator, ref_expr.expr(), target);
             return dmg.stmt();
         } else if (token.stringEquals("=")) {
+            // we're gonna kill this because all we need is the token
+            defer ref_expr.deinit();
+
             std.log.debug("Parsing assignment statement", .{});
 
             if (ref_expr.as(*FunctionCall)) |f| {
