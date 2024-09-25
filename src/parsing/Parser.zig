@@ -45,6 +45,50 @@ pub const Parser = @This();
 
 allocator: Allocator,
 
+const ReferenceExpression = union(enum)
+{
+    accessor: *AccessorExpression,
+    identifier: *Identifier,
+    function_call: *FunctionCall,
+
+    pub fn expr(self: ReferenceExpression) Expression {
+        switch (self) {
+            inline else => |x| return x.expr()
+        }
+    }
+
+    pub fn deinit(self: ReferenceExpression) void {
+        switch (self) {
+            inline else => |x| x.deinit()
+        }
+    }
+
+    pub fn getNameToken(self: ReferenceExpression) Token {
+        switch (self) {
+            .identifier => |i| return i.name,
+            .function_call => |f| return f.name,
+            .accessor => |a| {
+                const final_link: AccessorExpression.Link = a.accessor_chain[a.accessor_chain.len - 1];
+                switch (final_link) {
+                    .identifier => |i| return i.name,
+                    .function_call => |f| return f.name
+                }
+            }
+        }
+    }
+
+    pub fn as(self: ReferenceExpression, comptime T: type) ?T {
+        switch(self) {
+            inline else => |x| {
+                if (@TypeOf(x) == T) {
+                    return x;
+                }
+            }
+        }
+        return null;
+    }
+};
+
 pub fn parseTokens(self: Parser, iter: TokenIterator) !*CardDef {
     var actions = try ArrayList(*ActionDefinitionStatement).initCapacity(self.allocator, iter.internal_iter.len());
     defer actions.deinit();
@@ -289,16 +333,13 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     var dbg_tok: Token = iter.peek() orelse Token.eof;
     std.log.debug("Beginning to parse non-control flow statment with next token: '{s}'", .{ dbg_tok.toString() orelse "<EOF>" });
     // TODO: Make this an accessor expression
-    if (Identifier.from(self.allocator, iter)) |identifier| {
-        defer identifier.deinit();
+    if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
+        defer ref_expr.deinit();
 
         // it all comes down to the next token...
-        const token: Token = try iter.requireOneOf(&[_][]const u8 { "(", "=>", "=" });
+        const token: Token = try iter.requireOneOf(&[_][]const u8 { "=>", "=" });
 
-        if (token.stringEquals("(")) {
-            const fn_call: *FunctionCall = try self.parseFunctionCall(identifier.name, iter);
-            return fn_call.stmt();
-        } else if (token.stringEquals("=>")) {
+        if (token.stringEquals("=>")) {
             std.log.debug("Parsing damage statement", .{});
 
             // damage statement
@@ -308,35 +349,33 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             _ = try iter.require(";");
 
             // no allocator needed for this one
-            const dmg: *DamageStatement = try DamageStatement.new(self.allocator, identifier.expr(), target);
+            const dmg: *DamageStatement = try DamageStatement.new(self.allocator, ref_expr.expr(), target);
             return dmg.stmt();
         } else if (token.stringEquals("=")) {
             std.log.debug("Parsing assignment statement", .{});
+
+            if (ref_expr.as(*FunctionCall)) |f| {
+                std.log.err("Function call cannot be a valid left-hand side of an assignment statement (invoking '{s}(...)').", .{ f.name.toString().? });
+                return error.InvalidAssignment;
+            }
 
             var rhs: Expression = try self.parseExpression(iter);
             errdefer rhs.deinit();
 
             _ = try iter.require(";");
 
-            const assignment: *AssignmentStatement = try AssignmentStatement.new(self.allocator, identifier.name, rhs);
+            const assignment: *AssignmentStatement = try AssignmentStatement.new(self.allocator, ref_expr.getNameToken(), rhs);
             return assignment.stmt();
         }
         unreachable;
-    } else |err| {
-        switch (err) {
-            error.OutOfMemory => {
-                std.log.err("Out of memory while trying to parse identifier.", .{});
-                return err;
-            },
-            else => { } // handles scrolling
-        }
     }
+
     if (DiceLiteral.from(self.allocator, iter)) |dice| {
         var dmg_amount: Expression = dice.expr();
         errdefer dmg_amount.deinit();
 
         // has to be a damage statement
-        if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "-"})) |op| {
+        if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "-" })) |op| {
             // has to be an integer next
             const modifier: *IntegerLiteral = try IntegerLiteral.from(self.allocator, iter);
             errdefer modifier.deinit();
@@ -547,8 +586,8 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression
             return label.expr();
         } else |_| { }
 
-        if (try self.parseIdentifierOrAccessorChain(iter)) |expr| {
-            return expr;
+        if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
+            return ref_expr.expr();
         }
     }
     const next_tok: Token = iter.peek() orelse Token.eof;
@@ -609,7 +648,7 @@ fn parseFunctionCall(self: Parser, name: Token, iter: TokenIterator) !*FunctionC
     return try FunctionCall.new(self.allocator, name, args);
 }
 
-fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Expression {
+fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?ReferenceExpression {
     var chain = ArrayList(AccessorExpression.Link).init(self.allocator);
     defer chain.deinit();
 
@@ -649,10 +688,14 @@ fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Expressio
     if (chain.items.len > 2) {
         const links: []AccessorExpression.Link = try chain.toOwnedSlice();
         const accessor_expr: *AccessorExpression = try AccessorExpression.new(self.allocator, links);
-        return accessor_expr.expr();
+        return .{ .accessor = accessor_expr };
     } else if (chain.items.len == 1) {
         // deinit call above should cover this
-        return chain.items[0].expr();
+        const link: AccessorExpression.Link = chain.items[0];
+        switch (link) {
+            .function_call => |f| return .{ .function_call = f },
+            .identifier => |i| return .{ .identifier = i },
+        }
     }
     return null;
 }
