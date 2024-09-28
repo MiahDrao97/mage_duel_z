@@ -24,6 +24,7 @@ pub const Result = union(enum) {
     list: ListResult,
     label: Label,
     identifier: Symbol,
+    err: []const u8,
     void: void,
 
     pub fn as(self: Result, comptime T: type) ?T {
@@ -35,6 +36,10 @@ pub const Result = union(enum) {
                     return i;
                 }
             },
+            .err => |e| {
+                std.log.err("Result has error: '{s}'", .{ e });
+                return null;
+            },
             inline else => |x| {
                 if (@TypeOf(x) == T) {
                     return x;
@@ -45,7 +50,18 @@ pub const Result = union(enum) {
     }
 
     pub fn expectType(self: Result, comptime T: type) Error!T {
+        if (self.hasError()) |err| {
+            std.log.err("Result has error: '{s}'", .{ err });
+            return Error.HasError;
+        }
         return self.as(T) orelse Error.UnexpectedType;
+    }
+
+    pub fn hasError(self: Result) ?[]const u8 {
+        switch (self) {
+            .err => |e| return e,
+            else => return null
+        }
     }
 
     const Context = struct {
@@ -53,7 +69,7 @@ pub const Result = union(enum) {
             var hash_result: u64 = 0;
             var result_type: u8 = 0;
             switch (k) {
-                .void => hash_result = 0,
+                .void, .err => hash_result = 0,
                 .integer => |int| {
                     result_type = 1;
                     const bytes: [@sizeOf(i32)]u8 = std.mem.toBytes(int.value);
@@ -641,7 +657,8 @@ const InnerError = error {
     HigherOrderFunctionsNotSupported,
     InvalidInnerExpression,
     UnexpectedToken,
-    PlayerChoiceFailed
+    PlayerChoiceFailed,
+    HasError
 };
 
 pub const Error = InnerError || ParseTokenError || Allocator.Error;

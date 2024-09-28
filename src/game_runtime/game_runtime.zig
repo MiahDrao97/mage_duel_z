@@ -21,7 +21,7 @@ pub const Card = struct {
 
     pub fn init(
         allocator: Allocator,
-        id: u64,
+        id: u32,
         name: []const u8,
         text: []const u8,
         script: []const u8,
@@ -48,7 +48,7 @@ pub const Card = struct {
 pub const CardFactory = struct {
     allocator: Allocator,
 
-    pub fn getCard(_: u64) !Card {
+    pub fn getCard(_: u32) !Card {
         return error.NotImplemented;
     }
 };
@@ -110,7 +110,7 @@ pub const Player = struct {
 
                     std.debug.assert(impl != null);
                     const self: *Self = @ptrCast(@alignCast(impl));
-                    const card: Card = try self.card_factory.getCard(@intCast(id));
+                    const card: Card = try self.card_factory.getCard(@bitCast(id));
                     
                     try self.zones.prepared_zone.add(card);
                     return .{ .void };
@@ -121,7 +121,11 @@ pub const Player = struct {
         }
     }
 
-    pub fn toScope(self: *Self) Allocator.Error!*Scope {
+    pub fn draw(self: *Self, card: CardDef) !void {
+        try self.zones.hand.add(card);
+    }
+
+    pub fn toScope(self: *Self) !*Scope {
         var as_scope: *Scope = try Scope.newObj(self.allocator, self);
         errdefer as_scope.deinit();
 
