@@ -58,7 +58,7 @@ pub fn Deck(comptime T: type) type {
                 }
             }
 
-            // if we break out of the while loop, we ran out of cards
+            // if we break out of the while loop, we ran out of slots
             defer allocator.free(items);
 
             const final: []T = try allocator.alloc(T, i);
@@ -89,7 +89,7 @@ pub fn Deck(comptime T: type) type {
                 }
             }
 
-            // if we break out of the while loop, we ran out of cards
+            // if we break out of the while loop, we ran out of slots
             defer {
                 allocator.free(items);
                 self.elements.scroll(-1 * i);
@@ -102,7 +102,7 @@ pub fn Deck(comptime T: type) type {
         }
 
         pub fn shuffle(self: *Self) Allocator.Error!void {
-            const shuffle_iter = try self.elements.orderBy(&shuffle_ctx.shuffle_comparer, .asc, self.on_deinit);
+            const shuffle_iter: Iterator(T) = try self.elements.orderBy(&shuffle_ctx.shuffle_comparer, .asc, self.on_deinit);
             self.elements = shuffle_iter;
         }
 
@@ -128,7 +128,7 @@ pub fn Zone(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        cards: []?T,
+        slots: []?T,
         i: usize = 0,
         validator_fn: ?*const fn (Self, T) bool,
         allocator: Allocator,
@@ -138,18 +138,18 @@ pub fn Zone(comptime T: type) type {
             max_size: comptime_int,
             validator: ?*const fn (Self, T) bool
         ) Allocator.Error!Self {
-            const cards: []?T = allocator.alloc(?T, max_size);
-            @memset(cards, null);
+            const slots: []?T = allocator.alloc(?T, max_size);
+            @memset(slots, null);
 
             return Self {
-                .cards = cards, 
+                .slots = slots, 
                 .allocator = allocator,
                 .validator_fn = validator
             };
         }
 
         pub fn add(self: *Self, element: T) error{AtCapacity,InvalidElement}!void {
-            if (self.i >= self.cards.len) {
+            if (self.i >= self.slots.len) {
                 return error.AtCapacity;
             }
             if (self.validator_fn) |isValid| {
@@ -157,7 +157,7 @@ pub fn Zone(comptime T: type) type {
                     return error.InvalidElement;
                 }
             }
-            self.cards[self.i] = element;
+            self.slots[self.i] = element;
             self.i += 1;
         }
 
@@ -165,12 +165,12 @@ pub fn Zone(comptime T: type) type {
             if (index >= self.count()) {
                 return error.IndexOutOfRange;
             }
-            const element: T = self.cards[index];
-            self.cards[index] = null;
+            const element: T = self.slots[index];
+            self.slots[index] = null;
 
             // shift left
             for (index..self.i - 1) |j| {
-                self.cards[j] = self.cards[j + 1];
+                self.slots[j] = self.slots[j + 1];
             }
             self.i -= 1;
 
@@ -181,7 +181,7 @@ pub fn Zone(comptime T: type) type {
             if (index >= self.count()) {
                 return error.IndexOutOfRange;
             }
-            return self.cards[index].?;
+            return self.slots[index].?;
         }
 
         pub fn count(self: Self) usize {
@@ -189,11 +189,11 @@ pub fn Zone(comptime T: type) type {
         }
 
         pub fn iter(self: Self) Allocator.Error!Iterator(T) {
-            return try Iterator(T).from(self.allocator, self.cards[0..self.i]);
+            return try Iterator(T).from(self.allocator, self.slots[0..self.i]);
         }
 
         pub fn deinit(self: *Self) void {
-            self.allocator.free(self.cards);
+            self.allocator.free(self.slots);
             self.* = undefined;
         }
     };

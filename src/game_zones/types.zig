@@ -60,3 +60,18 @@ pub const Dice = struct {
         return self.rand.intRangeAtMost(u8, 1, self.sides);
     }
 };
+
+pub const CardType = union(enum) {
+    crystal: void,
+    spell: SpellType,
+    tactic: void,
+    role: void
+};
+
+pub const SpellType = enum {
+    rush,
+    attack,
+    utility,
+    teleport,
+    summon
+};

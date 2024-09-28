@@ -379,6 +379,13 @@ pub const Label = union(enum) {
     monster: void,
     rank: u8,
     accuracy: u8,
+    teleport: void,
+    rush: void,
+    summon: void,
+    utility: void,
+    tactic: void,
+    crystal: void,
+    role: void,
     // TODO: AOE
 
     const rank_values: []const u8 = &[_]u8 { 'a', 'b', 'c', 's' };
@@ -417,11 +424,8 @@ pub const Label = union(enum) {
 
     pub fn asByte(self: Label) ?u8 {
         switch (self) {
-            .one_time_use,
-            .attack,
-            .monster => return null,
-            .rank,
-            .accuracy => |x| return x
+            .rank, .accuracy => |x| return x,
+            inline else => return null
         }
     }
 

@@ -62,31 +62,6 @@ const ReferenceExpression = union(enum)
             inline else => |x| x.deinit()
         }
     }
-
-    pub fn getNameToken(self: ReferenceExpression) Token {
-        switch (self) {
-            .identifier => |i| return i.name,
-            .function_call => |f| return f.name,
-            .accessor => |a| {
-                const final_link: AccessorExpression.Link = a.accessor_chain[a.accessor_chain.len - 1];
-                switch (final_link) {
-                    .identifier => |i| return i.name,
-                    .function_call => |f| return f.name
-                }
-            }
-        }
-    }
-
-    pub fn as(self: ReferenceExpression, comptime T: type) ?T {
-        switch(self) {
-            inline else => |x| {
-                if (@TypeOf(x) == T) {
-                    return x;
-                }
-            }
-        }
-        return null;
-    }
 };
 
 pub fn parseTokens(self: Parser, iter: TokenIterator) !*CardDef {
@@ -358,18 +333,25 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
 
             std.log.debug("Parsing assignment statement", .{});
 
-            if (ref_expr.as(*FunctionCall)) |f| {
-                std.log.err("Function call cannot be a valid left-hand side of an assignment statement (invoking '{s}(...)').", .{ f.name.toString().? });
-                return error.InvalidAssignment;
+            switch (ref_expr) {
+                .identifier => |i| {
+                    var rhs: Expression = try self.parseExpression(iter);
+                    errdefer rhs.deinit();
+
+                    _ = try iter.require(";");
+
+                    const assignment: *AssignmentStatement = try AssignmentStatement.new(self.allocator, i.name, rhs);
+                    return assignment.stmt();
+                },
+                .function_call => |f| {
+                    std.log.err("Function call cannot be a valid left-hand side of an assignment statement (invoking '{s}(...)').", .{ f.name.toString().? });
+                    return error.InvalidAssignment;
+                },
+                .accessor => |_| {
+                    std.log.err("Currently, setters are not supported (setting properties on objects).", .{});
+                    return error.InvalidAssignment;
+                }
             }
-
-            var rhs: Expression = try self.parseExpression(iter);
-            errdefer rhs.deinit();
-
-            _ = try iter.require(";");
-
-            const assignment: *AssignmentStatement = try AssignmentStatement.new(self.allocator, ref_expr.getNameToken(), rhs);
-            return assignment.stmt();
         }
         unreachable;
     }
@@ -417,6 +399,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     } else |_| {
         // DiceLiteral.from() handles the scrolling since it's variable
     }
+    
     if (IntegerLiteral.from(self.allocator, iter)) |int| {
         errdefer int.deinit();
         // has to be a damage statement

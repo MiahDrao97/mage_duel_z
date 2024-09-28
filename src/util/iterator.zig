@@ -507,6 +507,18 @@ pub fn Iterator(comptime T: type) type {
             return final;
         }
 
+        /// Enumerates into new sorted slice.
+        /// Note this does not reset `self` but rather starts at the current offset, so you may want to call `reset()` beforehand.
+        /// Note that `self` may need to be deallocated via calling `deinit()` or reset again for later enumeration.
+        /// 
+        /// Caller owns the resulting slice.
+        pub fn toSortedSliceOwned(self: Self, comparer: *const fn (T, T) ComparerResult, ordering: Ordering) Allocator.Error![]T {
+            const slice: []T = try self.toOwnedSlice();
+
+            sort(slice, 0, slice.len - 1, comparer, ordering);
+            return slice;
+        }
+
         /// Enumerates through `iter`, storing the results in a fresh `Iterator(T)`.
         /// `iter` is then destroyed.
         /// 
@@ -631,7 +643,7 @@ pub fn Iterator(comptime T: type) type {
             slice: []T,
             left: usize,
             right: usize,
-            comparer_fn: *const fn (T, T) ComparerResult,
+            comparer: *const fn (T, T) ComparerResult,
             ordering: Ordering
         ) usize {
             // i must be an isize because it's allowed to -1 at the beginning
@@ -643,7 +655,7 @@ pub fn Iterator(comptime T: type) type {
                 std.log.debug("Index[{d}]: Comparing {any} to pivot {any}", .{ j, slice[j], pivot });
                 switch (ordering) {
                     .asc => {
-                        switch(comparer_fn(pivot, slice[j])) {
+                        switch(comparer(pivot, slice[j])) {
                             .greater_than => {
                                 i += 1;
                                 swap(slice, @bitCast(i), j);
@@ -652,7 +664,7 @@ pub fn Iterator(comptime T: type) type {
                         }
                     },
                     .desc => {
-                        switch(comparer_fn(pivot, slice[j])) {
+                        switch(comparer(pivot, slice[j])) {
                             .less_than => {
                                 i += 1;
                                 swap(slice, @bitCast(i), j);
@@ -688,28 +700,26 @@ pub fn Iterator(comptime T: type) type {
             slice: []T,
             left: usize,
             right: usize,
-            comparer_fn: *const fn (T, T) ComparerResult,
+            comparer: *const fn (T, T) ComparerResult,
             ordering: Ordering
         ) void {
             if (right <= left) {
                 return;
             }
-            const partition_point: usize = partition(slice, left, right, comparer_fn, ordering);
-            sort(slice, left, partition_point -| 1, comparer_fn, ordering);
-            sort(slice, partition_point + 1, right, comparer_fn, ordering);
+            const partition_point: usize = partition(slice, left, right, comparer, ordering);
+            sort(slice, left, partition_point -| 1, comparer, ordering);
+            sort(slice, partition_point + 1, right, comparer, ordering);
         }
 
         /// Rebuilds the iterator into an ordered slice and deinits `self`.
         pub fn orderBy(
             self: Self,
-            comparer_fn: *const fn (T, T) ComparerResult,
+            comparer: *const fn (T, T) ComparerResult,
             ordering: Ordering,
             on_deinit: ?*const fn ([]T) void
         ) Allocator.Error!Self {
-            const slice: []T = try self.toOwnedSlice();
+            const slice: []T = try self.toSortedSliceOwned(comparer, ordering);
             errdefer self.allocator.free(slice);
-
-            sort(slice, 0, slice.len - 1, comparer_fn, ordering);
 
             const new: Self = try fromSliceOwned(self.allocator, slice, on_deinit);
             self.deinit();
