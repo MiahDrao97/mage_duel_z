@@ -9,6 +9,7 @@ const imports = struct {
 const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const DamageTransaction = imports.types.DamageTransaction;
+const CardType = imports.types.CardType;
 const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
@@ -36,10 +37,7 @@ pub const Result = union(enum) {
                     return i;
                 }
             },
-            .err => |e| {
-                std.log.err("Result has error: '{s}'", .{ e });
-                return null;
-            },
+            .err => return null,
             inline else => |x| {
                 if (@TypeOf(x) == T) {
                     return x;
@@ -402,9 +400,10 @@ pub const Label = union(enum) {
     tactic: void,
     crystal: void,
     role: void,
+    sludge: void,
     // TODO: AOE
 
-    const rank_values: []const u8 = &[_]u8 { 'a', 'b', 'c', 's' };
+    const rank_values: []const u8 = "abcs";
 
     pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
         if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {

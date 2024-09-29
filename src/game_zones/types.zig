@@ -65,7 +65,8 @@ pub const CardType = union(enum) {
     crystal: void,
     spell: SpellType,
     tactic: void,
-    role: void
+    role: void,
+    sludge: void,
 };
 
 pub const SpellType = enum {
@@ -74,4 +75,15 @@ pub const SpellType = enum {
     utility,
     teleport,
     summon
+};
+
+pub const CardCost = union(enum) {
+    // TODO: figure this out
+    any: u4,
+
+    pub fn convertedCost(this: CardCost) u8 {
+        switch (this) {
+            else => return 0
+        }
+    }
 };

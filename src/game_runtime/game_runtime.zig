@@ -3,6 +3,8 @@ const parsing = @import("parsing");
 const game_zones = @import("game_zones");
 
 const CardType = game_zones.types.CardType;
+const CardCost = game_zones.types.CardCost;
+const Label = parsing.Label;
 const Zone = game_zones.Zone;
 const CardDef = parsing.CardDef;
 const SymbolTable = parsing.SymbolTable;
@@ -11,8 +13,51 @@ const Scope = parsing.Scope;
 const ExpressionResult = parsing.ExpressionResult;
 const Allocator = std.mem.Allocator;
 
+/// Intermediate representation of a card when it exists in the deck/discard piles
+pub const IntermediateCard = struct {
+    id: u32,
+    type: CardType,
+    cost: CardCost,
+
+    pub fn toScope(self: IntermediateCard, allocator: Allocator) Allocator.Error!*Scope {
+        var scope: *Scope = try Scope.newObj(allocator, null); //we're only adding props, so no need for a pointer
+        errdefer scope.deinit();
+
+        try scope.putValue("id", .{
+            .integer = .{
+                .value = @bitCast(self.id)
+            }
+        });
+
+        const card_type: Label = switch (self.type) {
+            .role => .{ .role },
+            .tactic => .{ .tactic },
+            .crystal => .{ .crystal },
+            .sludge => .{ .sludge },
+            .spell => |s| {
+                switch (s) {
+                    .attack => .{ .attack },
+                    .summon => .{ .summon },
+                    .utility => .{ .utility },
+                    .teleport => .{ .teleport },
+                    .rush => .{ .rush }
+                }
+            }
+        };
+        try scope.putValue("type", .{ .label = card_type });
+
+        const is_spell: bool = switch(self.type) {
+            .spell => true,
+            else => false
+        };
+        try scope.putValue("isSpell", .{ .boolean = is_spell });
+
+        return scope;
+    }
+};
+
 pub const Card = struct {
-    id:                 *const u64,
+    id:                 *const u32,
     name:               []const u8,
     text:               []const u8,
     script:             []const u8,
@@ -56,6 +101,7 @@ pub const CardFactory = struct {
 pub const Player = struct {
     order_axis: i5 = 0,
     moral_axis: i5 = 0,
+    hp: u16,
     card_factory: CardFactory,
     zones: Zones,
     allocator: Allocator,
@@ -70,11 +116,46 @@ pub const Player = struct {
         }
     };
 
+    fn implHeal(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
+        if (args.len != 1) {
+            return error.InvalidArgumentCount;
+        }
+        const int: i32 = try args[0].expectType(i32);
+        if (int < 0) {
+            return error.ArgumentOutOfRange;
+        }
+
+        std.debug.assert(impl != null);
+        const self: *Self = @ptrCast(@alignCast(impl));
+
+        self.hp +|= int;
+        return .{ .void };
+    }
+
+    fn implTakeDamage(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
+        if (args.len < 1 or args.len > 2) {
+            return error.InvalidArgumentCount;
+        }
+        const int: i32 = try args[0].expectType(i32);
+        if (int < 0) {
+            return error.ArgumentOutOfRange;
+        }
+
+        std.debug.assert(impl != null);
+        const self: *Self = @ptrCast(@alignCast(impl));
+
+        self.hp -|= int;
+        return .{ .void };
+    }
+
     fn implAddMoralPoints(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
         if (args.len != 1) {
             return error.InvalidArgumentCount;
         }
         const int: i32 = try args[0].expectType(i32);
+        if (int < 0) {
+            return error.ArgumentOutOfRange;
+        }
 
         std.debug.assert(impl != null);
         const self: *Self = @ptrCast(@alignCast(impl));
@@ -88,6 +169,9 @@ pub const Player = struct {
             return error.InvalidArgumentCount;
         }
         const int: i32 = try args[0].expectType(i32);
+        if (int < 0) {
+            return error.ArgumentOutOfRange;
+        }
 
         std.debug.assert(impl != null);
         const self: *Self = @ptrCast(@alignCast(impl));
@@ -141,6 +225,8 @@ pub const Player = struct {
         });
         try as_scope.putFunc("addMoralPoints", &implAddMoralPoints);
         try as_scope.putFunc("addOrderPoints", &implAddOrderPoints);
+        try as_scope.putFunc("heal", &implHeal);
+        try as_scope.putFunc("takeDamage", &implTakeDamage);
         
         return as_scope;
     }

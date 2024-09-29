@@ -24,9 +24,11 @@ active_player_idx:          usize = 0,
 allocator:                  Allocator,
 
 fn implDraw(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
-    std.debug.assert(impl != null);
+    if (args.len != 1) {
+        return error.InvalidArgumentCount;
+    }
+
     const card_sym: Symbol = try args[0].expectType(Symbol);
-    
     switch (card_sym) {
         .complex_object => |o| {
             if (o.getSymbol("id")) |id_sym| {
@@ -46,9 +48,21 @@ fn implDraw(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
     }
 }
 
+fn implYou(impl: ?*anyopaque, _: []ExpressionResult) !ExpressionResult {
+    std.debug.assert(impl != null);
+    const self: *GameModerator = @ptrCast(@alignCast(impl));
+
+    return .{
+        .symbol = .{
+            .complex_object = try self.activePlayer().toScope()
+        }
+    };
+}
+
 pub fn addGlobalFunctions(self: *GameModerator, scope: *Scope) !void {
     scope.obj_ptr = self;
     try scope.putFunc("draw", &implDraw);
+    try scope.putFunc("You", &implYou);
 }
 
 pub fn activePlayer(self: GameModerator) Player {
