@@ -107,9 +107,10 @@ pub const Player = struct {
     allocator: Allocator,
 
     const Self = @This();
+    
     const Zones = struct {
-        hand: Zone(CardDef),
-        prepared_zone: Zone(CardDef),
+        hand: Zone(CardDef, 5),
+        prepared_zone: Zone(CardDef, 5),
 
         pub fn isValid(_: Zone(CardDef), _: CardDef) bool {
             return true;

@@ -124,29 +124,17 @@ pub fn Deck(comptime T: type) type {
     };
 }
 
-pub fn Zone(comptime T: type) type {
+pub fn Zone(comptime T: type, slot_count: comptime_int) type {
+    if (slot_count < 1) {
+        @compileError("Slot count must be 1 or more. Was: " ++ slot_count);
+    }
+
     return struct {
         const Self = @This();
 
-        slots: []?T,
+        slots: [slot_count]?T = [_]?T { null } ** slot_count,
         i: usize = 0,
         validator_fn: ?*const fn (Self, T) bool,
-        allocator: Allocator,
-
-        pub fn new(
-            allocator: Allocator,
-            max_size: comptime_int,
-            validator: ?*const fn (Self, T) bool
-        ) Allocator.Error!Self {
-            const slots: []?T = allocator.alloc(?T, max_size);
-            @memset(slots, null);
-
-            return Self {
-                .slots = slots, 
-                .allocator = allocator,
-                .validator_fn = validator
-            };
-        }
 
         pub fn add(self: *Self, element: T) error{AtCapacity,InvalidElement}!void {
             if (self.i >= self.slots.len) {
@@ -188,13 +176,8 @@ pub fn Zone(comptime T: type) type {
             return self.i + 1;
         }
 
-        pub fn iter(self: Self) Allocator.Error!Iterator(T) {
-            return try Iterator(T).from(self.allocator, self.slots[0..self.i]);
-        }
-
-        pub fn deinit(self: *Self) void {
-            self.allocator.free(self.slots);
-            self.* = undefined;
+        pub fn iter(self: Self, allocator: Allocator) Allocator.Error!Iterator(T) {
+            return try Iterator(T).from(allocator, self.slots[0..self.i]);
         }
     };
 }

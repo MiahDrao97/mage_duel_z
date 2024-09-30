@@ -77,13 +77,12 @@ pub const SpellType = enum {
     summon
 };
 
-pub const CardCost = union(enum) {
+pub const CardCost = struct {
     // TODO: figure this out
+    components: [9]Crystal,
+};
+
+pub const Crystal = union(enum) {
     any: u4,
 
-    pub fn convertedCost(this: CardCost) u8 {
-        switch (this) {
-            else => return 0
-        }
-    }
 };
