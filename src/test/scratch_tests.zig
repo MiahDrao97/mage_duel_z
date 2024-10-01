@@ -28,6 +28,17 @@ fn ContainsArray(comptime T: type, capacity: comptime_int) type {
     };
 }
 
+const MyStruct = struct {
+    value: u8,
+    // any pointer fields result in seg-faulting
+};
+
+fn get_my_struct(byte: u8) *const MyStruct {
+    return &.{
+        .value = byte
+    };
+}
+
 test "type equal" {
     const type_1 = u8;
     const type_2 = u8;
@@ -63,4 +74,8 @@ test "array experiment" {
 
     const arr_struct: ContainsArray(u8, 4) = .{};
     try std.testing.expectEqualSlices(?u8, &[_]?u8 { null, null, null, null }, &arr_struct.elements);
+}
+test "const pointer to struct" {
+    const my_thang: *const MyStruct = get_my_struct(8);
+    try std.testing.expectEqual(8, my_thang.value);
 }

@@ -79,10 +79,9 @@ pub const SpellType = enum {
 
 pub const CardCost = struct {
     // TODO: figure this out
-    components: [9]Crystal,
+    components: [9]Crystal = [_]Crystal { .{ .any = 0 } } ** 9,
 };
 
 pub const Crystal = union(enum) {
     any: u4,
-
 };

@@ -124,17 +124,17 @@ pub fn Deck(comptime T: type) type {
     };
 }
 
-pub fn Zone(comptime T: type, slot_count: comptime_int) type {
-    if (slot_count < 1) {
-        @compileError("Slot count must be 1 or more. Was: " ++ slot_count);
+pub fn Zone(comptime T: type, size: comptime_int) type {
+    if (size < 1) {
+        @compileError("Size must be 1 or more. Was: " ++ size);
     }
 
     return struct {
         const Self = @This();
 
-        slots: [slot_count]?T = [_]?T { null } ** slot_count,
+        slots: [ size ]?T = [_]?T { null } ** size,
         i: usize = 0,
-        validator_fn: ?*const fn (Self, T) bool,
+        validator_fn: ?*const fn (Self, T) bool = null,
 
         pub fn add(self: *Self, element: T) error{AtCapacity,InvalidElement}!void {
             if (self.i >= self.slots.len) {
@@ -153,7 +153,7 @@ pub fn Zone(comptime T: type, slot_count: comptime_int) type {
             if (index >= self.count()) {
                 return error.IndexOutOfRange;
             }
-            const element: T = self.slots[index];
+            const element: T = self.slots[index].?;
             self.slots[index] = null;
 
             // shift left
