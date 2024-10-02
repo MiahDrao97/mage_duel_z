@@ -1,4 +1,5 @@
-const Allocator = @import("std").mem.Allocator;
+const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 pub fn BufferStringBuilder(capacity: comptime_int) type {
     if (capacity < 1) {
@@ -70,21 +71,30 @@ pub const DynamicStringBuilder = struct {
         };
     }
 
-    fn grow(self: *DynamicStringBuilder) Allocator.Error!void {
-        if (self.capacity == 0) {
-            self.capacity = 4;
+    fn grow(self: *DynamicStringBuilder, amt: usize) Allocator.Error!void {
+        if (amt > 1) {
+            var increase: usize = self.capacity * 2;
+            while (increase < amt) {
+                increase *= 2;
+            }
+            self.capacity += increase;
         } else {
-            self.capacity *= 2;
+            if (self.capacity == 0) {
+                self.capacity = 4;
+            } else {
+                self.capacity *= 2;
+            }
         }
         const new_slice: []u8 = try self.allocator.alloc(u8, self.capacity);
-
         @memcpy(new_slice[0..self.capacity], self.buf);
+
+        self.allocator.free(self.buf);
         self.buf = new_slice;
     }
 
     pub fn append(self: *DynamicStringBuilder, char: u8) Allocator.Error!void {
         if (self.idx >= self.capacity) {
-            try self.grow();
+            try self.grow(1);
         }
         self.buf[self.idx] = char;
         self.idx += 1;
@@ -95,7 +105,7 @@ pub const DynamicStringBuilder = struct {
             return;
         }
         if (self.idx + str.len > self.capacity) {
-            try self.grow();
+            try self.grow(str.len);
         }
 
         @memcpy(self.buf[self.idx..(self.idx + str.len)], str);
@@ -103,11 +113,8 @@ pub const DynamicStringBuilder = struct {
     }
 
     pub fn appendLine(self: *DynamicStringBuilder, str: []const u8) Allocator.Error!void {
-        if (self.len == 0) {
-            return;
-        }
-        if (self.idx + str.len + 1 > self.capacity) {
-            try self.grow();
+        if (str.len > 0 and self.idx + str.len + 1 > self.capacity) {
+            try self.grow(str.len + 1);
         }
         self.appendStr(str) catch unreachable;
         self.append('\n') catch unreachable;

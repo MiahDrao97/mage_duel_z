@@ -21,6 +21,7 @@ const TokenIterator = imports.TokenIterator;
 const SymbolTable = imports.SymbolTable;
 const Symbol = imports.Symbol;
 const DamageType = imports.types.DamageType;
+const Crystal = imports.types.Crystal;
 const Dice = imports.types.Dice;
 const ParseTokenError = imports.ParseTokenError;
 const FunctionCall = imports.FunctionCall;
@@ -160,6 +161,31 @@ pub const DamageTypeLiteral = struct {
     }
 
     pub fn deinit(self: *DamageTypeLiteral) void {
+        self.allocator.destroy(self);
+    }
+};
+
+pub const CrystalLiteral = struct {
+    val: Crystal,
+    allocator: Allocator,
+
+    pub fn from(allocator: Allocator, iter: TokenIterator) Allocator.Error!*CrystalLiteral {
+        if (iter.next()) |token| {
+            if (token.getCrystalValue()) |c| {
+                const ptr: *CrystalLiteral = try allocator.create(CrystalLiteral);
+                ptr.* = .{
+                    .val = c,
+                    .allocator = allocator
+                };
+                return ptr;
+            }
+            iter.internal_iter.scroll(-1);
+            return ParseError.UnexpectedToken;
+        }
+        return ParseError.EOF;
+    }
+
+    pub fn deinit(self: *CrystalLiteral) void {
         self.allocator.destroy(self);
     }
 };

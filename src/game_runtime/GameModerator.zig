@@ -40,7 +40,7 @@ fn implDraw(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
                 const self: *GameModerator = @ptrCast(@alignCast(impl));
                 const card: Card = try self.card_factory.getCard(@intCast(id));
                 try self.activePlayer().draw(card);
-                return .{ .void };
+                return .void;
             }
             return error.SymbolNotFound;
         },

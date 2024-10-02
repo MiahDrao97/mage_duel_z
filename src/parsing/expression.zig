@@ -25,6 +25,7 @@ pub const Result = union(enum) {
     list: ListResult,
     label: Label,
     identifier: Symbol,
+    crystal: u8,
     err: []const u8,
     void: void,
 
@@ -151,8 +152,19 @@ pub const Result = union(enum) {
                     }
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
-                .list => |list| {
+                .crystal => |c| {
                     result_type = 7;
+                    const bytes: [@sizeOf(u8)]u8 = std.mem.toBytes(c);
+                    const hash_size: comptime_int = @sizeOf(u8) + 1;
+                    var to_hash: [hash_size]u8 = undefined;
+                    to_hash[0] = result_type;
+                    for (1..@intCast(hash_size)) |i| {
+                        to_hash[i] = bytes[i - 1];
+                    }
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                .list => |list| {
+                    result_type = 9;
                     // TODO: do we wanna hash each item?
                     // Right now, we're not evaluating the contents...
                     const ptr: usize = @intFromPtr(list.items.ptr);
@@ -390,6 +402,7 @@ pub const ListResult = struct {
 pub const Label = union(enum) {
     one_time_use: void,
     attack: void,
+    attack_attr: u8,
     monster: void,
     rank: u8,
     accuracy: u8,
@@ -404,12 +417,23 @@ pub const Label = union(enum) {
     // TODO: AOE
 
     const rank_values: []const u8 = "abcs";
+    const attack_attr_values: []const u8 = "psmc";
 
     pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
         if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {
             return Label.one_time_use;
         } else if (std.mem.eql(u8, @tagName(Label.attack), label)) {
             return Label.attack;
+        } else if (std.mem.eql(u8, @tagName(Label.attack_attr), label)) {
+            if (value) |val| {
+                if (val.len == 1) {
+                    if (std.mem.indexOf(u8, attack_attr_values, &[_]u8 { std.ascii.toLower(val[0]) })) |i| {
+                        return .{ .attack_attr = rank_values[i] };
+                    }
+                    return Error.InvalidLabelValue;
+                }
+            }
+            return Error.LabelRequiresValue;
         } else if (std.mem.eql(u8, @tagName(Label.rank), label)) {
             if (value) |val| {
                 // expecting a single character

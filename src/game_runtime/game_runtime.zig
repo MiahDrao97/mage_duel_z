@@ -130,7 +130,7 @@ pub const Player = struct {
         const self: *Self = @ptrCast(@alignCast(impl));
 
         self.hp +|= int;
-        return .{ .void };
+        return .void;
     }
 
     fn implTakeDamage(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
@@ -146,7 +146,7 @@ pub const Player = struct {
         const self: *Self = @ptrCast(@alignCast(impl));
 
         self.hp -|= int;
-        return .{ .void };
+        return .void;
     }
 
     fn implAddMoralPoints(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
@@ -162,7 +162,7 @@ pub const Player = struct {
         const self: *Self = @ptrCast(@alignCast(impl));
 
         self.moral_axis +|= int;
-        return .{ .void };
+        return .void;
     }
 
     fn implAddOrderPoints(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
@@ -178,7 +178,7 @@ pub const Player = struct {
         const self: *Self = @ptrCast(@alignCast(impl));
 
         self.order_axis +|= int;
-        return .{ .void };
+        return .void;
     }
 
     fn implPrepareCard(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
@@ -198,7 +198,7 @@ pub const Player = struct {
                     const card: Card = try self.card_factory.getCard(@bitCast(id));
                     
                     try self.zones.prepared_zone.add(card);
-                    return .{ .void };
+                    return .void;
                 }
                 return error.SymbolNotFound;
             },

@@ -2,6 +2,7 @@ const std = @import("std");
 const types = @import("game_zones").types;
 const Iterator = @import("util").Iterator;
 const DamageType = types.DamageType;
+const Crystal = types.Crystal;
 const Dice = types.Dice;
 const Allocator = std.mem.Allocator;
 
@@ -43,6 +44,7 @@ pub const static_tokens: [32][]const u8 = [_][]const u8 {
 const InnerError = error {
     ParseDiceError,
     ParseDamageTypeError,
+    ParseCrystalError,
     ParseBoolError,
     InvalidToken,
     EOF
@@ -77,8 +79,8 @@ pub const StringToken = struct {
 
 pub const NumericToken = struct {
     string_value: []const u8,
-    allocator: Allocator,
     value: u16,
+    allocator: Allocator,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!NumericToken {
@@ -113,8 +115,8 @@ pub const NumericToken = struct {
 
 pub const BooleanToken = struct {
     string_value: []const u8,
-    allocator: Allocator,
     value: bool,
+    allocator: Allocator,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!BooleanToken {
@@ -156,8 +158,8 @@ pub const BooleanToken = struct {
 
 pub const DamageTypeToken = struct {
     string_value: []const u8,
-    allocator: Allocator,
     value: DamageType,
+    allocator: Allocator,
 
     /// Copies `str` with `allocator` so that the passed-in `str` can be freed by the caller.
     pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!DamageTypeToken {
@@ -186,6 +188,42 @@ pub const DamageTypeToken = struct {
     }
 
     pub fn deinit(self: *DamageTypeToken) void {
+        self.allocator.free(self.string_value);
+        self.* = undefined;
+    }
+};
+
+pub const CrystalToken = struct {
+    string_value: []const u8,
+    value: Crystal,
+    allocator: Allocator,
+
+    pub fn from(allocator: Allocator, str: []const u8) ParseTokenError!CrystalToken {
+        if (Crystal.try_parse(str)) |crystal| {
+            const str_copy: []u8 = try allocator.alloc(u8, str.len);
+            @memcpy(str_copy, str);
+
+            return CrystalToken {
+                .string_value = str_copy,
+                .value = crystal,
+                .allocator = allocator
+            };
+        }
+        return ParseTokenError.ParseCrystalError;
+    }
+
+    pub fn clone(self: CrystalToken) Allocator.Error!CrystalToken {
+        const str_copy: []u8 = try self.allocator.alloc(u8, self.string_value.len);
+        @memcpy(str_copy, self.string_value);
+
+        return CrystalToken {
+            .string_value = str_copy,
+            .value = self.value,
+            .allocator = self.allocator
+        };
+    }
+
+    pub fn deinit(self: *CrystalToken) void {
         self.allocator.free(self.string_value);
         self.* = undefined;
     }
@@ -250,6 +288,7 @@ pub const Token = union(enum) {
     boolean: BooleanToken,
     dice: DiceToken,
     damage_type: DamageTypeToken,
+    crystal: CrystalToken,
     comment: void,
     eof: void,
 
@@ -261,6 +300,7 @@ pub const Token = union(enum) {
                 .symbol,
                 .boolean,
                 .dice,
+                .crystal,
                 .damage_type => |*x| x.deinit(),
             else => { }
         }
@@ -286,6 +326,7 @@ pub const Token = union(enum) {
             .boolean => |b| return .{ .boolean = try b.clone() },
             .dice => |d| return .{ .dice = try d.clone() },
             .damage_type => |d| return .{ .damage_type = try d.clone() },
+            .crystal => |c| return .{ .crystal = try c.clone() },
             else => return self
         }
     }
@@ -308,7 +349,8 @@ pub const Token = union(enum) {
                 .numeric,
                 .boolean,
                 .dice,
-                .damage_type => |x| x.string_value,
+                .damage_type,
+                .crystal => |x| x.string_value,
             else => null
         };
     }
@@ -383,6 +425,13 @@ pub const Token = union(enum) {
     pub fn getDamageTypeValue(self: Token) ?DamageType {
         return switch (self) {
             .damage_type => |d| d.value,
+            else => null
+        };
+    }
+
+    pub fn getCrystalValue(self: Token) ?Crystal {
+        return switch (self) {
+            .crystal => |c| c.value,
             else => null
         };
     }
