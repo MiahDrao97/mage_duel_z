@@ -1,4 +1,5 @@
 const std = @import("std");
+const util = @import("util");
 const Random = std.Random;
 
 pub const DamageType  = enum {
@@ -78,26 +79,56 @@ pub const SpellType = enum {
 };
 
 pub const CardCost = struct {
-    // [ opal|fire|obsidian + opal + 7 ]
-    components: [9]CostComponent = [_]CostComponent { .none } ** 9,
+    // [ opal|ruby|obsidian + opal + 3 ] = [ 145, 1, 255, 255, 255, 0 ... ]
+    components: [16]u8 = [_]u8 { 0 } ** 16,
 
-    pub fn cost(self: *CardCost) []CostComponent {
-        for (self.components, 0..) |c, i| {
-            switch (c) {
-                .none => {
-                    if (i == 0) {
-                        return &[_]CostComponent {};
-                    }
-                    return self.components[0..i];
-                },
-                else => { }
+    const ctx = struct {
+        pub fn comparer(a: u8, b: u8) util.ComparerResult {
+            if (a > b) {
+               return .greater_than;
+            } else if (a < b) {
+                return .less_than;
             }
+            return .equal_to;
+        }
+    };
+
+    pub fn add(self: *CardCost, components: []u8) error{NoMoreComponentSlots}!void {
+        if (self.cursor()) |idx| {
+            if (components.len + idx > 15) {
+                return error.NoMoreComponentSlots;
+            }
+            @memcpy(self.components[idx..(idx + components.len)], components);
+        } else {
+            return error.NoMoreComponentSlots;
+        }
+    }
+
+    pub fn cursor(self: *CardCost) ?usize {
+        util.sort(u8, &self.components, 0, 15, &ctx.comparer, .desc);
+        for (self.components, 0..) |c, i| {
+            if (c == 0) {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    // would return [ 255, 255, 255, 145, 1 ]
+    pub fn cost(self: *CardCost) []u8 {
+        if (self.cursor()) |idx| {
+            if (idx == 0) {
+                return &[_]u8 {};
+            }
+            return self.components[0..idx];
         }
         return &self.components;
     }
 };
 
 pub const Crystal = enum(u8) {
+    /// none
+    none = 0,
     /// divine
     opal = 1,
     /// force
@@ -114,6 +145,8 @@ pub const Crystal = enum(u8) {
     emerald = 64,
     /// necrotic
     obsidian = 128,
+    /// any
+    any = 255,
 
     pub fn try_parse(str: []const u8) ?Crystal {
         if (std.mem.eql(u8, str, @tagName(.opal))) {
@@ -132,26 +165,10 @@ pub const Crystal = enum(u8) {
             return .emerald;
         } else if (std.mem.eql(u8, str, @tagName(.obsidian))) {
             return .obsidian;
+        } else if (std.mem.eql(u8, str, @tagName(.any))) {
+            return .any;
         }
         return null;
     }
 };
 
-pub const CostComponent = union(enum) {
-    /// any crystal type
-    any: u8,
-    /// specific crystal type (with hyrbids, because we're treating crystals as flags via bitwise operations)
-    specific: u8,
-    /// basically a slug to fill in the array
-    none: void,
-
-    pub fn includes(self: CostComponent, crystal: Crystal) bool {
-        switch (self) {
-            .specific => |c| {
-                return c & @intFromEnum(crystal) == @intFromEnum(crystal);
-            },
-            .any => return true,
-            .none => return false,
-        }
-    }
-};

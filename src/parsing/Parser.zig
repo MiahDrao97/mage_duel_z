@@ -6,11 +6,14 @@ const imports = struct {
     usingnamespace @import("Statement.zig");
     usingnamespace @import("concrete_statements.zig");
     usingnamespace @import("tokens.zig");
+    usingnamespace @import("game_zones");
 };
 
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const Token = imports.Token;
+const Crystal = imports.types.Crystal;
+const CardCost = imports.types.CardCost;
 const Expression = imports.Expression;
 const Statement = imports.Statement;
 const TokenIterator = imports.TokenIterator;
@@ -40,6 +43,7 @@ const FactorExpression = imports.FactorExpression;
 const AdditiveExpression = imports.AdditiveExpression;
 const UnaryExpression = imports.UnaryExpression;
 const ParenthesizedExpression = imports.ParensthesizedExpression;
+const ActionCostExpression = imports.ActionCostExpression;
 
 pub const Parser = @This();
 
@@ -113,10 +117,8 @@ fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !*ActionDef
 
     _ = try iter.require("[");
 
-    var actionCost: ActionDefinitionStatement.ActionCostExpr = try self.parseActionCostExpr(iter);
+    const actionCost: *ActionCostExpression = try self.parseActionCostExpr(iter);
     errdefer actionCost.deinit();
-
-    _ = try iter.require("]");
 
     const whenExpr: ?*WhenExpression = try self.parseWhenExpression(iter);
     errdefer {
@@ -144,13 +146,55 @@ fn parseActionDefinitionStatement(self: Parser, iter: TokenIterator) !*ActionDef
     return try ActionDefinitionStatement.new(self.allocator, statements_slice, actionCost, whenExpr);
 }
 
-fn parseActionCostExpr(self: Parser, iter: TokenIterator) !ActionDefinitionStatement.ActionCostExpr {
-    if (IntegerLiteral.from(self.allocator, iter)) |int| {
-        // this is the most common case
-        return .{ .flat = int };
-    } else |_| {
-        return .{ .dynamic = try self.parseTargetExpression(iter, false) };
+fn parseActionCostExpr(self: Parser, iter: TokenIterator) !*ActionCostExpression {
+    var cc: CardCost = .{};
+    var dynamic_identifier: ?Token = null;
+    while (iter.next()) |next_tok| {
+        if (next_tok.stringEquals("]")) {
+            break;
+        } else if (next_tok.getCrystalValue()) |c| {
+            var crystal: u8 = @intFromEnum(c);
+            while (iter.nextMatchesSymbol(&[_][]const u8 { "|" })) |_| {
+                if (iter.next()) |n| {
+                    const next_c: Crystal = n.getCrystalValue() orelse return error.InvalidCrystalHybrid;
+                    crystal |= @intFromEnum(next_c);
+                }
+                return error.EOF;
+            }
+            var to_add: [1]u8 = [_]u8 { crystal };
+            try cc.add(&to_add);
+            if (iter.nextMatchesSymbol(&[_][]const u8 { "]" })) |_| {
+                break;
+            }
+            _ = try iter.require("+");
+        } else if (next_tok.getNumericValue()) |any| {
+            if (cc.cursor()) |idx| {
+                if (idx + any > 15) {
+                    return error.GenericCostExceedsLimit;
+                }
+            }
+            if (any > 0) {
+                const generic_slots: []u8 = try self.allocator.alloc(u8, @intCast(any));
+                defer self.allocator.free(generic_slots);
+                @memset(generic_slots, @intFromEnum(Crystal.any));
+                cc.add(generic_slots) catch {
+                    std.log.err("Somehow we failed to add components: {any} => {?}", .{ cc.components, @errorReturnTrace() });
+                    unreachable;
+                };
+            }
+            if (iter.nextMatchesSymbol(&[_][]const u8 { "]" })) |_| {
+                break;
+            }
+            _ = try iter.require("+");
+        } else {
+            if (dynamic_identifier) |_| {
+                return error.MultipleDynamicComponentsNotAllowed;
+            }
+            try next_tok.expectMatches(@tagName(.identifier));
+            dynamic_identifier = next_tok;
+        }
     }
+    return try ActionCostExpression.new(self.allocator, cc, dynamic_identifier);
 }
 
 fn parseWhenExpression(self: Parser, iter: TokenIterator) !?*WhenExpression {
@@ -399,7 +443,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     } else |_| {
         // DiceLiteral.from() handles the scrolling since it's variable
     }
-    
+
     if (IntegerLiteral.from(self.allocator, iter)) |int| {
         errdefer int.deinit();
         // has to be a damage statement

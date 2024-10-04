@@ -135,28 +135,10 @@ pub const CardDef = struct {
         }
         
         const action_def: *const ActionDefinitionStatement = self.actions[ @intCast(index.value) ];
-        switch (action_def.action_cost) {
-            .flat => |f| {
-                return .{
-                    .integer = .{
-                        .value = @intCast(f.val)
-                    }
-                };
-            },
-            ActionDefinitionStatement.ActionCostExpr.dynamic => |d| {
-                var empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
-                defer empty_sym_table.deinit();
+        var empty_sym_table: SymbolTable = try SymbolTable.new(self.allocator);
+        defer empty_sym_table.deinit();
 
-                const result: ExpressionResult = try d.amount.evaluate(&empty_sym_table);
-                var int_result: IntResult = result.as(IntResult) orelse {
-                    std.log.err("Invalid amount expression on dynamic action cost expression.", .{});
-                    return error.InvalidDynamicAmountExpr;
-                };
-                // it's dynamic, so this implicitly costs "up to" x actions
-                int_result.up_to = true;
-                return ExpressionResult { .integer = int_result };
-            }
-        }
+        return try action_def.evaluateActionCost(&empty_sym_table);
     }
 
     /// Converts this `CardDef` to a `Scope`.

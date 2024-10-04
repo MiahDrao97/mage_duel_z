@@ -23,7 +23,7 @@ test "SymbolTable.putValue()" {
     {
         var symbol_table: SymbolTable = try SymbolTable.new(testing.allocator);
         defer symbol_table.deinit();
-
+        
         const symbol_value: ExpressionResult = .{
             .integer = .{
                 .value = 3

@@ -10,6 +10,7 @@ const DamageType = imports.types.DamageType;
 const Dice = imports.types.Dice;
 const DamageTransaction = imports.types.DamageTransaction;
 const CardType = imports.types.CardType;
+const CardCost = imports.types.CardCost;
 const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const TokenIterator = imports.TokenIterator;
@@ -26,6 +27,7 @@ pub const Result = union(enum) {
     label: Label,
     identifier: Symbol,
     crystal: u8,
+    card_cost: CardCost, 
     err: []const u8,
     void: void,
 
@@ -75,9 +77,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(i32) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .boolean => |boolean| {
@@ -86,9 +86,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(bool) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .damage_type => |damage_type| {
@@ -97,9 +95,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DamageType) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .damage_transaction => |damage_transaction| {
@@ -108,9 +104,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DamageTransaction) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .dice => |dice| {
@@ -119,9 +113,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(DiceResult) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .label => |label| {
@@ -130,13 +122,11 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(Label) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .identifier => |identifier| {
-                    result_type = 6;
+                    result_type = 7;
                     var ptr: usize = undefined;
                     switch (identifier) {
                         .value => |v| ptr = @intFromPtr(v),
@@ -147,24 +137,27 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .crystal => |c| {
-                    result_type = 7;
+                    result_type = 8;
                     const bytes: [@sizeOf(u8)]u8 = std.mem.toBytes(c);
                     const hash_size: comptime_int = @sizeOf(u8) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
+                    hash_result = Wyhash.hash(0, &to_hash);
+                },
+                .card_cost => |cc| {
+                    result_type = 9;
+                    var to_hash: [17]u8 = undefined;
+                    to_hash[0] = result_type;
+                    @memcpy(to_hash[1..], &cc.components);
                     hash_result = Wyhash.hash(0, &to_hash);
                 },
                 .list => |list| {
-                    result_type = 9;
+                    result_type = 10;
                     // TODO: do we wanna hash each item?
                     // Right now, we're not evaluating the contents...
                     const ptr: usize = @intFromPtr(list.items.ptr);
@@ -172,9 +165,7 @@ pub const Result = union(enum) {
                     const hash_size: comptime_int = @sizeOf(usize) + 1;
                     var to_hash: [hash_size]u8 = undefined;
                     to_hash[0] = result_type;
-                    for (1..@intCast(hash_size)) |i| {
-                        to_hash[i] = bytes[i - 1];
-                    }
+                    @memcpy(to_hash[1..], &bytes);
                     hash_result = Wyhash.hash(0, &to_hash);
                 }
             }

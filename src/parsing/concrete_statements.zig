@@ -23,6 +23,7 @@ const Dice = imports.types.Dice;
 const IntegerLiteral = imports.IntegerLiteral;
 const TargetExpression = imports.TargetExpression;
 const WhenExpression = imports.WhenExpression;
+const ActionCostExpression = imports.ActionCostExpression;
 const Allocator = std.mem.Allocator;
 const Token = imports.Token;
 
@@ -346,18 +347,7 @@ pub const ForLoop = struct {
 };
 
 pub const ActionDefinitionStatement = struct {
-    pub const ActionCostExpr = union(enum) {
-        flat: *IntegerLiteral,
-        dynamic: *TargetExpression,
-
-        pub fn deinit(self: ActionCostExpr) void {
-            switch (self) {
-                inline else => |x| x.deinit()
-            }
-        }
-    };
-
-    action_cost: ActionCostExpr,
+    action_cost: *ActionCostExpression,
     condition: ?*WhenExpression,
     statements: []Statement,
     allocator: Allocator,
@@ -368,7 +358,7 @@ pub const ActionDefinitionStatement = struct {
     pub fn new(
         allocator: Allocator,
         statements: []Statement,
-        action_cost: ActionCostExpr,
+        action_cost: *ActionCostExpression,
         condition: ?*WhenExpression
     ) Allocator.Error!*ActionDefinitionStatement {
         const ptr: *ActionDefinitionStatement = try allocator.create(ActionDefinitionStatement);
@@ -408,17 +398,7 @@ pub const ActionDefinitionStatement = struct {
     }
 
     pub fn evaluateActionCost(self: ActionDefinitionStatement, symbol_table: *SymbolTable) Error!Result {
-        switch (self.action_cost) {
-            inline else => |x| {
-                const action_cost_eval: Result = try x.evaluate(symbol_table);
-                const cost: i32 = try action_cost_eval.expectType(i32);
-
-                if (cost < 0) {
-                    return Error.MustBePositiveInteger;
-                }
-                return cost;
-            }
-        }
+        return try self.action_cost.expr().evaluate(symbol_table);
     }
 
     pub fn stmt(self: *ActionDefinitionStatement) Statement {

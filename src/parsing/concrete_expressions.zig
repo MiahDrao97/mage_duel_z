@@ -22,6 +22,7 @@ const SymbolTable = imports.SymbolTable;
 const Symbol = imports.Symbol;
 const DamageType = imports.types.DamageType;
 const Crystal = imports.types.Crystal;
+const CardCost = imports.types.CardCost;
 const Dice = imports.types.Dice;
 const ParseTokenError = imports.ParseTokenError;
 const FunctionCall = imports.FunctionCall;
@@ -183,6 +184,23 @@ pub const CrystalLiteral = struct {
             return ParseError.UnexpectedToken;
         }
         return ParseError.EOF;
+    }
+
+    fn implEvaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *CrystalLiteral = @ptrCast(@alignCast(impl));
+        return .{ .crystal = @intFromEnum(self.val) };
+    }
+
+    fn implDeinit(impl: *anyopaque) void {
+        const self: *CrystalLiteral = @ptrCast(@alignCast(impl));
+        self.deinit();
+    }
+
+    pub fn expr(self: *CrystalLiteral) Expression {
+        return Expression {
+            .ptr = self,
+            .evaluate_fn = &implEvaluate,
+        };
     }
 
     pub fn deinit(self: *CrystalLiteral) void {
@@ -940,15 +958,23 @@ pub const BooleanExpression = struct {
         const lh_result: Result = try self.lhs.evaluate(symbol_table);
         const rh_result: Result = try self.rhs.evaluate(symbol_table);
 
-        const lh_bool: bool = lh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
-        const rh_bool: bool = rh_result.expectType(bool) catch { return Error.OperandTypeNotSupported; };
-        if (self.op.stringEquals("+")) {
-            return .{ .boolean = lh_bool and rh_bool };
-        } else if (self.op.stringEquals("|")) {
-            return .{ .boolean = lh_bool or rh_bool };
-        } else {
-            return .{ .boolean = (!lh_bool and rh_bool) or (lh_bool and !rh_bool) };
+        if (lh_result.as(bool)) |lh_bool| {
+            const rh_bool: bool = rh_result.expectType(bool) catch { return Error.OperandTypeMismatch; };
+            if (self.op.stringEquals("+")) {
+                return .{ .boolean = lh_bool and rh_bool };
+            } else if (self.op.stringEquals("|")) {
+                return .{ .boolean = lh_bool or rh_bool };
+            } else {
+                return .{ .boolean = (!lh_bool and rh_bool) or (lh_bool and !rh_bool) };
+            }
+        } else if (lh_result.as(u8)) |lh_crystal| {
+            const rh_crystal: u8 = rh_result.expectType(u8) catch { return Error.OperandTypeMismatch; };
+            if (self.op.stringEquals("|")) {
+                return .{ .crystal = lh_crystal | rh_crystal };
+            }
+            return Error.OperandTypeNotSupported;
         }
+        return Error.OperandTypeNotSupported;
     }
 
     fn implDeinit(impl: *anyopaque) void {
@@ -1188,5 +1214,51 @@ pub const WhenExpression = struct {
             .evaluate_fn = &implEvaluate,
             .deinit_fn = &implDeinit
         };
+    }
+};
+
+pub const ActionCostExpression = struct {
+    card_cost: CardCost,
+    identifier: ?Token,
+    allocator: Allocator,
+
+    pub fn new(
+        allocator: Allocator,
+        card_cost: CardCost,
+        identifier: ?Token
+    ) Allocator.Error!*ActionCostExpression {
+        const ptr: *ActionCostExpression = try allocator.create(ActionCostExpression);
+        ptr.* = .{
+            .card_cost = card_cost,
+            .identifier = identifier,
+            .allocator = allocator
+        };
+
+        return ptr;
+    }
+
+    fn implEvaluate(impl: *anyopaque, _: *SymbolTable) Error!Result {
+        const self: *ActionCostExpression = @ptrCast(@alignCast(impl));
+        return .{ .card_cost = self.card_cost };
+    }
+
+    fn implDeinit(impl: *anyopaque) void {
+        const self: *ActionCostExpression = @ptrCast(@alignCast(impl));
+        self.deinit();
+    }
+
+    pub fn expr(self: *ActionCostExpression) Expression {
+        return Expression {
+            .ptr = self,
+            .evaluate_fn = &implEvaluate,
+            .deinit_fn = &implDeinit
+        };
+    }
+
+    pub fn deinit(self: *ActionCostExpression) void {
+        if (self.identifier) |*dyn| {
+            dyn.deinit();
+        }
+        self.allocator.destroy(self);
     }
 };

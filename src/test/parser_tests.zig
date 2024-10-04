@@ -6,6 +6,7 @@ const testing = std.testing;
 const Parser = parsing.Parser;
 const Tokenizer = parsing.Tokenizer;
 const Token = parsing.Token;
+const CardCost = game_zones.types.CardCost;
 const CardDef = parsing.CardDef;
 const Scope = parsing.Scope;
 const Symbol = parsing.Symbol;
@@ -13,6 +14,7 @@ const SymbolTable = parsing.SymbolTable;
 const FunctionDef = parsing.FunctionDef;
 const ExpressionResult = parsing.ExpressionResult;
 const DamageType = game_zones.types.DamageType;
+const Crystal = game_zones.types.Crystal;
 const TokenIterator = parsing.TokenIterator;
 
 // result types
@@ -373,9 +375,11 @@ test "parse() Firebolt" {
 
     const tokenizer: Tokenizer = .{ .allocator = testing.allocator };
     const tokens: []Token = try tokenizer.tokenize(script);
-    errdefer Token.deinitAllAndFree(testing.allocator, tokens);
 
-    var iter: TokenIterator = try TokenIterator.from(testing.allocator, tokens);
+    var iter: TokenIterator = TokenIterator.from(testing.allocator, tokens) catch |err| {
+        Token.deinitAllAndFree(testing.allocator, tokens);
+        return err;
+    };
     defer iter.deinit();
 
     const parser: Parser = .{ .allocator = testing.allocator };
@@ -398,8 +402,9 @@ test "parse() Firebolt" {
         
     var args: [1]ExpressionResult = [_]ExpressionResult { .{ .integer = .{ .value = 0 } } };
     const result: ExpressionResult = try func(card_def, &args);
-    const int_result: IntResult = try result.expectType(IntResult);
+    var cost_result: CardCost = try result.expectType(CardCost);
+    const cost: []u8 = cost_result.cost();
 
-    try testing.expect(int_result.value == 1);
-    try testing.expect(!int_result.up_to);
+    try testing.expect(cost.len == 1);
+    try testing.expect(cost[0] == @intFromEnum(Crystal.any));
 }

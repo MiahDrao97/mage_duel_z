@@ -1,4 +1,5 @@
 const std = @import("std");
+const util = @import("util.zig");
 const Allocator = std.mem.Allocator;
 
 pub const Ordering = enum { asc, desc };
@@ -515,7 +516,7 @@ pub fn Iterator(comptime T: type) type {
         pub fn toSortedSliceOwned(self: Self, comparer: *const fn (T, T) ComparerResult, ordering: Ordering) Allocator.Error![]T {
             const slice: []T = try self.toOwnedSlice();
 
-            sort(slice, 0, slice.len - 1, comparer, ordering);
+            util.sort(T, slice, 0, slice.len - 1, comparer, ordering);
             return slice;
         }
 
@@ -637,78 +638,6 @@ pub fn Iterator(comptime T: type) type {
             };
 
             return iter_ptr.iter();
-        }
-
-        fn partition(
-            slice: []T,
-            left: usize,
-            right: usize,
-            comparer: *const fn (T, T) ComparerResult,
-            ordering: Ordering
-        ) usize {
-            // i must be an isize because it's allowed to -1 at the beginning
-            var i: isize = @as(isize, @bitCast(left)) - 1;
-
-            const pivot: T = slice[right];
-            std.log.debug("Left = {d}. Pivot at index[{d}]: {any}", .{ left, right, pivot });
-            for (left..right) |j| {
-                std.log.debug("Index[{d}]: Comparing {any} to pivot {any}", .{ j, slice[j], pivot });
-                switch (ordering) {
-                    .asc => {
-                        switch(comparer(pivot, slice[j])) {
-                            .greater_than => {
-                                i += 1;
-                                swap(slice, @bitCast(i), j);
-                            },
-                            else => { }
-                        }
-                    },
-                    .desc => {
-                        switch(comparer(pivot, slice[j])) {
-                            .less_than => {
-                                i += 1;
-                                swap(slice, @bitCast(i), j);
-                            },
-                            else => { }
-                        }
-                    }
-                }
-            }
-            swap(slice, @bitCast(i + 1), right);
-            return @bitCast(i + 1);
-        }
-
-        fn swap(slice: []T, left: usize, right: usize) void {
-            if (left >= slice.len) {
-                std.log.debug("Left-hand index exceeds slice side.", .{});
-                return;
-            }
-            if (left == right) {
-                std.log.debug("Indexes are equal. No swap operation taking place.", .{});
-                return;
-            }
-            std.log.debug("Slice snapshot: [{any}] =>", .{ slice });
-            const temp: T = slice[left];
-
-            slice[left] = slice[right];
-            slice[right] = temp;
-
-            std.log.debug("                [{any}]", .{ slice });
-        }
-
-        fn sort(
-            slice: []T,
-            left: usize,
-            right: usize,
-            comparer: *const fn (T, T) ComparerResult,
-            ordering: Ordering
-        ) void {
-            if (right <= left) {
-                return;
-            }
-            const partition_point: usize = partition(slice, left, right, comparer, ordering);
-            sort(slice, left, partition_point -| 1, comparer, ordering);
-            sort(slice, partition_point + 1, right, comparer, ordering);
         }
 
         /// Rebuilds the iterator into an ordered slice and deinits `self`.
