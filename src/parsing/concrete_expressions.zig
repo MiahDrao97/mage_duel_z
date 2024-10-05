@@ -401,7 +401,7 @@ pub const LabelLiteral = struct {
             iter.internal_iter.scroll(-1);
             return err;
         };
-        const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+        const label_token: Token = try iter.requireType(&[_][]const u8 { @tagName(.identifier) });
         var label: Label = undefined;
 
         if (iter.peek()) |next_tok| {
@@ -410,7 +410,7 @@ pub const LabelLiteral = struct {
             if (next_tok.symbolEquals("=")) {
                 // consume because we already have the next token
                 _ = iter.next();
-                const rhs: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier), @tagName(Token.numeric) });
+                const rhs: Token = try iter.requireType(&[_][]const u8 { @tagName(.identifier), @tagName(.numeric) });
                 label = try Label.from(label_token.toString().?, rhs.toString());
 
                 const ptr: *LabelLiteral = try allocator.create(LabelLiteral);
@@ -459,7 +459,7 @@ pub const Identifier = struct {
     allocator: Allocator,
 
     pub fn from(allocator: Allocator, iter: TokenIterator) ParseError!*Identifier {
-        const identifier_token: Token = iter.requireType(&[_][]const u8 { @tagName(Token.identifier) }) catch |err| {
+        const identifier_token: Token = iter.requireType(&[_][]const u8 { @tagName(.identifier) }) catch |err| {
             iter.internal_iter.scroll(-1);
             return err;
         };

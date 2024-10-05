@@ -10,6 +10,7 @@ const imports = struct {
 };
 
 const Allocator = std.mem.Allocator;
+const FixedBufferAllocator = std.heap.FixedBufferAllocator;
 const ArrayList = std.ArrayList;
 const Token = imports.Token;
 const Crystal = imports.types.Crystal;
@@ -174,9 +175,14 @@ fn parseActionCostExpr(self: Parser, iter: TokenIterator) !*ActionCostExpression
                 }
             }
             if (any > 0) {
-                const generic_slots: []u8 = try self.allocator.alloc(u8, @intCast(any));
-                defer self.allocator.free(generic_slots);
+                var buf: [16]u8 = undefined;
+                var fixed_buf_alloc: FixedBufferAllocator = FixedBufferAllocator.init(&buf);
+                var stack_alloc: Allocator = fixed_buf_alloc.allocator();
+
+                const generic_slots: []u8 = try stack_alloc.alloc(u8, @intCast(any));
+                defer stack_alloc.free(generic_slots);
                 @memset(generic_slots, @intFromEnum(Crystal.any));
+
                 cc.add(generic_slots) catch {
                     std.log.err("Somehow we failed to add components: {any} => {?}", .{ cc.components, @errorReturnTrace() });
                     unreachable;
@@ -309,7 +315,7 @@ fn parseForLoop(self: Parser, iter: TokenIterator) !*ForLoop {
     _ = try iter.require("for");
     _ = try iter.require("(");
 
-    const identifier: Token = try iter.requireType(&[_][]const u8 { @tagName(Token.identifier) });
+    const identifier: Token = try iter.requireType(&[_][]const u8 { @tagName(.identifier) });
     _ = try iter.require("in");
 
     var range: Expression = try self.parseExpression(iter);

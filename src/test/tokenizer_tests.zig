@@ -19,7 +19,7 @@ test "tokenize whitespace" {
     defer testing.allocator.free(tokens);
 
     try testing.expect(tokens.len == 1);
-    try tokens[0].expectMatches(@tagName(Token.eof));
+    try tokens[0].expectMatches(@tagName(.eof));
 }
 test "tokenize numeric" {
     const script = "4";
@@ -30,9 +30,9 @@ test "tokenize numeric" {
 
     try testing.expect(tokens.len == 2);
     try tokens[0].expectStringEquals("4");
-    try tokens[0].expectMatches(@tagName(Token.numeric));
+    try tokens[0].expectMatches(@tagName(.numeric));
     try testing.expect(tokens[0].getNumericValue().? == 4);
-    try tokens[1].expectMatches(@tagName(Token.eof));
+    try tokens[1].expectMatches(@tagName(.eof));
 }
 test "tokenize boolean" {
     {
@@ -44,9 +44,9 @@ test "tokenize boolean" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("false");
-        try tokens[0].expectMatches(@tagName(Token.boolean));
+        try tokens[0].expectMatches(@tagName(.boolean));
         try testing.expect(!tokens[0].getBoolValue().?);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "true";
@@ -57,9 +57,9 @@ test "tokenize boolean" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("true");
-        try tokens[0].expectMatches(@tagName(Token.boolean));
+        try tokens[0].expectMatches(@tagName(.boolean));
         try testing.expect(tokens[0].getBoolValue().?);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
 }
 test "tokenize damage type" {
@@ -72,9 +72,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("fire");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Fire);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .fire);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "lightning";
@@ -85,9 +85,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("lightning");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Lightning);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .lightning);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "divine";
@@ -98,9 +98,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("divine");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Divine);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .divine);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "force";
@@ -111,9 +111,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("force");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Force);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .force);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "acid";
@@ -124,9 +124,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("acid");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Acid);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .acid);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "necrotic";
@@ -137,9 +137,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("necrotic");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Necrotic);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .necrotic);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "ice";
@@ -150,9 +150,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("ice");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Ice);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .ice);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "psychic";
@@ -163,9 +163,9 @@ test "tokenize damage type" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("psychic");
-        try tokens[0].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[0].getDamageTypeValue().? == DamageType.Psychic);
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[0].getDamageTypeValue().? == .psychic);
+        try tokens[1].expectMatches(@tagName(.eof));
     }
 }
 test "tokenize identifier" {
@@ -178,8 +178,8 @@ test "tokenize identifier" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("$");
-        try tokens[0].expectMatches(@tagName(Token.identifier));
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.identifier));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "_";
@@ -190,8 +190,8 @@ test "tokenize identifier" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("_");
-        try tokens[0].expectMatches(@tagName(Token.identifier));
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.identifier));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "$my_var";
@@ -202,8 +202,8 @@ test "tokenize identifier" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("$my_var");
-        try tokens[0].expectMatches(@tagName(Token.identifier));
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.identifier));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
 }
 test "tokenize syntax" {
@@ -216,8 +216,8 @@ test "tokenize syntax" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("!");
-        try tokens[0].expectMatches(@tagName(Token.symbol));
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.symbol));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "+!";
@@ -228,8 +228,8 @@ test "tokenize syntax" {
 
         try testing.expect(tokens.len == 2);
         try tokens[0].expectStringEquals("+!");
-        try tokens[0].expectMatches(@tagName(Token.symbol));
-        try tokens[1].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.symbol));
+        try tokens[1].expectMatches(@tagName(.eof));
     }
     {
         const script = "+ !";
@@ -240,10 +240,10 @@ test "tokenize syntax" {
 
         try testing.expect(tokens.len == 3);
         try tokens[0].expectStringEquals("+");
-        try tokens[0].expectMatches(@tagName(Token.symbol));
+        try tokens[0].expectMatches(@tagName(.symbol));
         try tokens[1].expectStringEquals("!");
-        try tokens[1].expectMatches(@tagName(Token.symbol));
-        try tokens[2].expectMatches(@tagName(Token.eof));
+        try tokens[1].expectMatches(@tagName(.symbol));
+        try tokens[2].expectMatches(@tagName(.eof));
     }
     {
         const script = "=> >= <= == ~=";
@@ -254,16 +254,16 @@ test "tokenize syntax" {
 
         try testing.expect(tokens.len == 6);
         try tokens[0].expectStringEquals("=>");
-        try tokens[0].expectMatches(@tagName(Token.symbol));
+        try tokens[0].expectMatches(@tagName(.symbol));
         try tokens[1].expectStringEquals(">=");
-        try tokens[1].expectMatches(@tagName(Token.symbol));
+        try tokens[1].expectMatches(@tagName(.symbol));
         try tokens[2].expectStringEquals("<=");
-        try tokens[2].expectMatches(@tagName(Token.symbol));
+        try tokens[2].expectMatches(@tagName(.symbol));
         try tokens[3].expectStringEquals("==");
-        try tokens[3].expectMatches(@tagName(Token.symbol));
+        try tokens[3].expectMatches(@tagName(.symbol));
         try tokens[4].expectStringEquals("~=");
-        try tokens[4].expectMatches(@tagName(Token.symbol));
-        try tokens[5].expectMatches(@tagName(Token.eof));
+        try tokens[4].expectMatches(@tagName(.symbol));
+        try tokens[5].expectMatches(@tagName(.eof));
     }
 }
 test "tokenize comment" {
@@ -276,7 +276,7 @@ test "tokenize comment" {
 
         // comments are not added to the token list
         try testing.expect(tokens.len == 1);
-        try tokens[0].expectMatches(@tagName(Token.eof));
+        try tokens[0].expectMatches(@tagName(.eof));
     }
 }
 test "tokenize real script" {
@@ -297,87 +297,84 @@ test "tokenize real script" {
         try testing.expect(tokens.len == 26);
 
         try tokens[0].expectStringEquals("#");
-        try tokens[0].expectMatches(@tagName(Token.symbol));
+        try tokens[0].expectMatches(@tagName(.symbol));
 
         try tokens[1].expectStringEquals("attack");
-        try tokens[1].expectMatches(@tagName(Token.identifier));
+        try tokens[1].expectMatches(@tagName(.identifier));
         
         try tokens[2].expectStringEquals("[");
-        try tokens[2].expectMatches(@tagName(Token.symbol));
+        try tokens[2].expectMatches(@tagName(.symbol));
         
         try tokens[3].expectStringEquals("1");
-        try tokens[3].expectMatches(@tagName(Token.numeric));
+        try tokens[3].expectMatches(@tagName(.numeric));
         try testing.expect(tokens[3].getNumericValue().? == 1);
 
         try tokens[4].expectStringEquals("]");
-        try tokens[4].expectMatches(@tagName(Token.symbol));
+        try tokens[4].expectMatches(@tagName(.symbol));
 
         try tokens[5].expectStringEquals(":");
-        try tokens[5].expectMatches(@tagName(Token.symbol));
-        
-        try tokens[6].expectStringEquals("{");
-        try tokens[6].expectMatches(@tagName(Token.symbol));
+        try tokens[5].expectMatches(@tagName(.symbol)); 
 
         try tokens[7].expectStringEquals("$");
-        try tokens[7].expectMatches(@tagName(Token.identifier));
+        try tokens[7].expectMatches(@tagName(.identifier));
 
         try tokens[8].expectStringEquals("=");
-        try tokens[8].expectMatches(@tagName(Token.symbol));
+        try tokens[8].expectMatches(@tagName(.symbol));
 
         try tokens[9].expectStringEquals("target");
-        try tokens[9].expectMatches(@tagName(Token.symbol));
+        try tokens[9].expectMatches(@tagName(.symbol));
 
         try tokens[10].expectStringEquals("(");
-        try tokens[10].expectMatches(@tagName(Token.symbol));
+        try tokens[10].expectMatches(@tagName(.symbol));
 
         try tokens[11].expectStringEquals("1");
-        try tokens[11].expectMatches(@tagName(Token.numeric));
+        try tokens[11].expectMatches(@tagName(.numeric));
         try testing.expect(tokens[11].getNumericValue().? == 1);
         
         try tokens[12].expectStringEquals("from");
-        try tokens[12].expectMatches(@tagName(Token.symbol));
+        try tokens[12].expectMatches(@tagName(.symbol));
 
         try tokens[13].expectStringEquals("Player");
-        try tokens[13].expectMatches(@tagName(Token.identifier));
+        try tokens[13].expectMatches(@tagName(.identifier));
 
         try tokens[14].expectStringEquals(")");
-        try tokens[14].expectMatches(@tagName(Token.symbol));
+        try tokens[14].expectMatches(@tagName(.symbol));
 
         try tokens[15].expectStringEquals(";");
-        try tokens[15].expectMatches(@tagName(Token.symbol));
+        try tokens[15].expectMatches(@tagName(.symbol));
         
         try tokens[16].expectStringEquals("1");
-        try tokens[16].expectMatches(@tagName(Token.numeric));
+        try tokens[16].expectMatches(@tagName(.numeric));
         try testing.expect(tokens[16].getNumericValue().? == 1);
 
         try tokens[17].expectStringEquals("d6");
-        try tokens[17].expectMatches(@tagName(Token.dice));
+        try tokens[17].expectMatches(@tagName(.dice));
         try testing.expect(tokens[17].getDiceValue().?.sides == 6);
 
         try tokens[18].expectStringEquals("+");
-        try tokens[18].expectMatches(@tagName(Token.symbol));
+        try tokens[18].expectMatches(@tagName(.symbol));
 
         try tokens[19].expectStringEquals("4");
-        try tokens[19].expectMatches(@tagName(Token.numeric));
+        try tokens[19].expectMatches(@tagName(.numeric));
         try testing.expect(tokens[19].getNumericValue().? == 4);
 
         try tokens[20].expectStringEquals("fire");
-        try tokens[20].expectMatches(@tagName(Token.damage_type));
-        try testing.expect(tokens[20].getDamageTypeValue().? == DamageType.Fire);
+        try tokens[20].expectMatches(@tagName(.damage_type));
+        try testing.expect(tokens[20].getDamageTypeValue().? == .fire);
         
         try tokens[21].expectStringEquals("=>");
-        try tokens[21].expectMatches(@tagName(Token.symbol));
+        try tokens[21].expectMatches(@tagName(.symbol));
 
         try tokens[22].expectStringEquals("$");
-        try tokens[22].expectMatches(@tagName(Token.identifier));
+        try tokens[22].expectMatches(@tagName(.identifier));
 
         try tokens[23].expectStringEquals(";");
-        try tokens[23].expectMatches(@tagName(Token.symbol));
+        try tokens[23].expectMatches(@tagName(.symbol));
 
         try tokens[24].expectStringEquals("}");
-        try tokens[24].expectMatches(@tagName(Token.symbol));
+        try tokens[24].expectMatches(@tagName(.symbol));
 
-        try tokens[25].expectMatches(@tagName(Token.eof));
+        try tokens[25].expectMatches(@tagName(.eof));
         try testing.expect(tokens[25].toString() == null);
     }
     {

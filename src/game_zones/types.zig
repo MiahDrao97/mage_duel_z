@@ -3,32 +3,32 @@ const util = @import("util");
 const Random = std.Random;
 
 pub const DamageType  = enum {
-    Fire,
-    Lightning,
-    Force,
-    Divine,
-    Acid,
-    Necrotic,
-    Ice,
-    Psychic,
+    fire,
+    lightning,
+    force,
+    divine,
+    acid,
+    necrotic,
+    ice,
+    psychic,
 
     pub fn try_from(str: []const u8) ?DamageType {
-        if (std.mem.eql(u8, str, "fire")) {
-            return .Fire;
-        } else if (std.mem.eql(u8, str, "lightning")) {
-            return .Lightning;
-        } else if (std.mem.eql(u8, str, "force")) {
-            return .Force;
-        } else if (std.mem.eql(u8, str, "divine")) {
-            return .Divine;
-        } else if (std.mem.eql(u8, str, "acid")) {
-            return .Acid;
-        } else if (std.mem.eql(u8, str, "necrotic")) {
-            return .Necrotic;
-        } else if (std.mem.eql(u8, str, "ice")) {
-            return .Ice;
-        } else if (std.mem.eql(u8, str, "psychic")) {
-            return .Psychic;
+        if (std.mem.eql(u8, str, @tagName(.fire))) {
+            return .fire;
+        } else if (std.mem.eql(u8, str, @tagName(.lightning))) {
+            return .lightning;
+        } else if (std.mem.eql(u8, str, @tagName(.force))) {
+            return .force;
+        } else if (std.mem.eql(u8, str, @tagName(.divine))) {
+            return .divine;
+        } else if (std.mem.eql(u8, str, @tagName(.acid))) {
+            return .acid;
+        } else if (std.mem.eql(u8, str, @tagName(.necrotic))) {
+            return .necrotic;
+        } else if (std.mem.eql(u8, str, @tagName(.ice))) {
+            return .ice;
+        } else if (std.mem.eql(u8, str, @tagName(.psychic))) {
+            return .psychic;
         }
         return null;
     }
@@ -165,8 +165,6 @@ pub const Crystal = enum(u8) {
             return .emerald;
         } else if (std.mem.eql(u8, str, @tagName(.obsidian))) {
             return .obsidian;
-        } else if (std.mem.eql(u8, str, @tagName(.any))) {
-            return .any;
         }
         return null;
     }

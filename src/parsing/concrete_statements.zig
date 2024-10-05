@@ -33,7 +33,7 @@ pub const FunctionCall = struct {
     allocator: Allocator,
 
     pub fn new(allocator: Allocator, name: Token, args: []Expression) !*FunctionCall {
-        try name.expectMatches(@tagName(Token.identifier));
+        try name.expectMatches(@tagName(.identifier));
         const ptr: *FunctionCall = try allocator.create(FunctionCall);
         errdefer allocator.destroy(ptr);
 
@@ -264,7 +264,7 @@ pub const ForLoop = struct {
         range: Expression,
         statements: []Statement
     ) !*ForLoop {
-        try identifier.expectMatches(@tagName(Token.identifier));
+        try identifier.expectMatches(@tagName(.identifier));
         const ptr: *ForLoop = try allocator.create(ForLoop);
         errdefer allocator.destroy(ptr);
 
@@ -423,7 +423,7 @@ pub const AssignmentStatement = struct {
         identifier: Token,
         value: Expression
     ) !*AssignmentStatement {
-        try identifier.expectMatches(@tagName(Token.identifier));
+        try identifier.expectMatches(@tagName(.identifier));
         const ptr: *AssignmentStatement = try allocator.create(AssignmentStatement);
         errdefer allocator.destroy(ptr);
 

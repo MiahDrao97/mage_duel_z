@@ -411,11 +411,11 @@ pub const Label = union(enum) {
     const attack_attr_values: []const u8 = "psmc";
 
     pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
-        if (std.mem.eql(u8, @tagName(Label.one_time_use), label)) {
+        if (std.mem.eql(u8, @tagName(.one_time_use), label)) {
             return Label.one_time_use;
-        } else if (std.mem.eql(u8, @tagName(Label.attack), label)) {
+        } else if (std.mem.eql(u8, @tagName(.attack), label)) {
             return Label.attack;
-        } else if (std.mem.eql(u8, @tagName(Label.attack_attr), label)) {
+        } else if (std.mem.eql(u8, @tagName(.attack_attr), label)) {
             if (value) |val| {
                 if (val.len == 1) {
                     if (std.mem.indexOf(u8, attack_attr_values, &[_]u8 { std.ascii.toLower(val[0]) })) |i| {
@@ -425,7 +425,7 @@ pub const Label = union(enum) {
                 }
             }
             return Error.LabelRequiresValue;
-        } else if (std.mem.eql(u8, @tagName(Label.rank), label)) {
+        } else if (std.mem.eql(u8, @tagName(.rank), label)) {
             if (value) |val| {
                 // expecting a single character
                 if (val.len == 1) {
@@ -436,7 +436,7 @@ pub const Label = union(enum) {
                 return Error.InvalidLabelValue;
             }
             return Error.LabelRequiresValue;
-        } else if (std.mem.eql(u8, @tagName(Label.accuracy), label)) {
+        } else if (std.mem.eql(u8, @tagName(.accuracy), label)) {
             if (value) |val| {
                 const accuracy: u8 = std.fmt.parseUnsigned(u8, val, 10) catch {
                     std.log.err("Unable to parse unsigned 8-bit integer from '{s}' while parsing the value of the accuracy label.", .{ val });

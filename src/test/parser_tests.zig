@@ -52,7 +52,7 @@ test "parse() list literal" {
         defer list_result.deinit();
         
         try testing.expect(list_result.items.len == 2);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.integer), list_result.component_type.?);
 
         for (list_result.items, 1..) |item, expected| {
             const item_result: IntResult = try item.expectType(IntResult);
@@ -209,7 +209,7 @@ test "parse() list-literal, additive expression combo" {
         defer list_result.deinit();
 
         try testing.expect(list_result.items.len == 2);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.integer), list_result.component_type.?);
         
         for (list_result.items, 1..) |item, expected| {
             const item_result: IntResult = try item.expectType(IntResult);
@@ -246,7 +246,7 @@ test "parse() list-literal, additive expression combo" {
         defer list_result.deinit();
 
         try testing.expect(list_result.items.len == 2);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.integer), list_result.component_type.?);
         
         for (list_result.items, 1..) |item, expected| {
             const item_result: IntResult = try item.expectType(IntResult);
@@ -283,7 +283,7 @@ test "parse() list-literal, additive expression combo" {
         defer list_result.deinit();
 
         try testing.expect(list_result.items.len == 3);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.integer), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.integer), list_result.component_type.?);
         
         for (list_result.items, 1..) |item, expected| {
             const item_result: IntResult = try item.expectType(IntResult);
@@ -320,10 +320,10 @@ test "parse() list-literal, additive expression combo" {
         defer list_result.deinit();
 
         try testing.expect(list_result.items.len == 1);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.damage_type), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.damage_type), list_result.component_type.?);
         
         const dmg_type_result: DamageType = try list_result.items[0].expectType(DamageType);
-        try testing.expectEqualStrings(@tagName(DamageType.Fire), @tagName(dmg_type_result));
+        try testing.expectEqualStrings(@tagName(.fire), @tagName(dmg_type_result));
     }
     {
         const script: []const u8 =
@@ -355,10 +355,10 @@ test "parse() list-literal, additive expression combo" {
         defer list_result.deinit();
 
         try testing.expect(list_result.items.len == 1);
-        try testing.expectEqualStrings(@tagName(ExpressionResult.damage_type), list_result.component_type.?);
+        try testing.expectEqualStrings(@tagName(.damage_type), list_result.component_type.?);
         
         const dmg_type_result: DamageType = try list_result.items[0].expectType(DamageType);
-        try testing.expectEqualStrings(@tagName(DamageType.Fire), @tagName(dmg_type_result));
+        try testing.expectEqualStrings(@tagName(.fire), @tagName(dmg_type_result));
     }
 }
 test "parse() Firebolt" {
