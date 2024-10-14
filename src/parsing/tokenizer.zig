@@ -54,7 +54,7 @@ pub fn tokenize(self: Tokenizer, script: []const u8) TokenizerError![]Token {
         const next_token: Token = self.readNextToken(first, tokens_iter, &next_first) catch |err| {
             std.log.debug("Successfully parsed:\n", .{});
             for (tokens_list.items) |token| {
-                std.log.debug("\t'{s}'\n", .{ token.toString() orelse "[null]" });
+                std.log.debug("\t'{s}'\n", .{ token.asString() orelse "[null]" });
             }
             return err;
         };

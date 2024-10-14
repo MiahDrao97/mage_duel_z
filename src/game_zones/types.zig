@@ -2,7 +2,7 @@ const std = @import("std");
 const util = @import("util");
 const Random = std.Random;
 
-pub const DamageType  = enum {
+pub const DamageType = enum {
     fire,
     lightning,
     force,
@@ -34,12 +34,7 @@ pub const DamageType  = enum {
     }
 };
 
-pub const DamageTransaction = struct {
-    damage_type: DamageType,
-    modifier: i32 = 0,
-    dice: ?Dice = null,
-    repetitions: u16 = 1
-};
+pub const DamageTransaction = struct { damage_type: DamageType, modifier: i32 = 0, dice: ?Dice = null, repetitions: u16 = 1 };
 
 pub const Dice = struct {
     sides: u8,
@@ -51,10 +46,7 @@ pub const Dice = struct {
         if (sides < 1) {
             return error.OutOfRange;
         }
-        return Dice {
-            .sides = sides,
-            .rand = std.crypto.random
-        };
+        return Dice{ .sides = sides, .rand = std.crypto.random };
     }
 
     pub fn roll(self: Dice) u8 {
@@ -70,22 +62,16 @@ pub const CardType = union(enum) {
     sludge: void,
 };
 
-pub const SpellType = enum {
-    rush,
-    attack,
-    utility,
-    teleport,
-    summon
-};
+pub const SpellType = enum { rush, attack, utility, teleport, summon };
 
 pub const CardCost = struct {
     // [ opal|ruby|obsidian + opal + 3 ] = [ 145, 1, 255, 255, 255, 0 ... ]
-    components: [16]u8 = [_]u8 { 0 } ** 16,
+    components: [16]u8 = [_]u8{0} ** 16,
 
     const ctx = struct {
         pub fn comparer(a: u8, b: u8) util.ComparerResult {
             if (a > b) {
-               return .greater_than;
+                return .greater_than;
             } else if (a < b) {
                 return .less_than;
             }
@@ -93,7 +79,7 @@ pub const CardCost = struct {
         }
     };
 
-    pub fn add(self: *CardCost, components: []u8) error{NoMoreComponentSlots}!void {
+    pub fn add(self: *CardCost, components: []const u8) error{NoMoreComponentSlots}!void {
         if (self.cursor()) |idx| {
             if (components.len + idx > 15) {
                 return error.NoMoreComponentSlots;
@@ -118,7 +104,7 @@ pub const CardCost = struct {
     pub fn cost(self: *CardCost) []u8 {
         if (self.cursor()) |idx| {
             if (idx == 0) {
-                return &[_]u8 {};
+                return &[_]u8{};
             }
             return self.components[0..idx];
         }
@@ -169,4 +155,3 @@ pub const Crystal = enum(u8) {
         return null;
     }
 };
-

@@ -342,7 +342,7 @@ pub const Token = union(enum) {
         return std.mem.eql(u8, @tagName(self), tag);
     }
 
-    pub fn toString(this: Token) ?[]const u8 {
+    pub fn asString(this: Token) ?[]const u8 {
         return switch (this) {
             .identifier, .symbol => |x| x.value,
             inline
@@ -356,7 +356,7 @@ pub const Token = union(enum) {
     }
 
     pub fn stringEquals(self: Token, str: []const u8) bool {
-        if (self.toString()) |self_str| {
+        if (self.asString()) |self_str| {
             return std.mem.eql(u8, self_str, str);
         }
         return false;
@@ -371,7 +371,7 @@ pub const Token = union(enum) {
 
     pub fn expectStringEquals(self: Token, str: []const u8) ParseTokenError!void {
         if (!self.stringEquals(str)) {
-            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.toString().?, str });
+            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.asString().?, str });
             return ParseTokenError.InvalidToken;
         }
     }
@@ -379,7 +379,7 @@ pub const Token = union(enum) {
     pub fn expectSymbolEquals(self: Token, str: []const u8) ParseTokenError!void {
         try self.expectMatches(@tagName(Token.symbol));
         if (!self.stringEquals(str)) {
-            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.toString().?, str });
+            std.log.err("Expected string value '{s}' but was '{s}'", .{ self.asString().?, str });
             return ParseTokenError.InvalidToken;
         }
     }

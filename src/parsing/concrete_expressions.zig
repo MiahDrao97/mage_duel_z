@@ -411,7 +411,7 @@ pub const LabelLiteral = struct {
                 // consume because we already have the next token
                 _ = iter.next();
                 const rhs: Token = try iter.requireType(&[_][]const u8 { @tagName(.identifier), @tagName(.numeric) });
-                label = try Label.from(label_token.toString().?, rhs.toString());
+                label = try Label.from(label_token.asString().?, rhs.asString());
 
                 const ptr: *LabelLiteral = try allocator.create(LabelLiteral);
                 ptr.* = .{
@@ -422,7 +422,7 @@ pub const LabelLiteral = struct {
             }
         }
 
-        label = try Label.from(label_token.toString().?, null);
+        label = try Label.from(label_token.asString().?, null);
         const ptr: *LabelLiteral = try allocator.create(LabelLiteral);
         ptr.* = .{
             .label = label,
@@ -477,7 +477,7 @@ pub const Identifier = struct {
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *Identifier = @ptrCast(@alignCast(impl));
 
-        if (symbol_table.getSymbol(self.name.toString().?)) |value| {
+        if (symbol_table.getSymbol(self.name.asString().?)) |value| {
             return .{ .identifier = value };
         }
         return Error.UndefinedIdentifier;
@@ -1074,7 +1074,7 @@ pub const AccessorExpression = struct {
 
         pub fn getName(self: Link) []const u8 {
             switch (self) {
-                inline else => |x| return x.name.toString().?
+                inline else => |x| return x.name.asString().?
             }
         }
 

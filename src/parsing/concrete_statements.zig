@@ -53,7 +53,7 @@ pub const FunctionCall = struct {
 
     fn implExecute(impl: *anyopaque, symbol_table: *SymbolTable) !void {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
-        const func_symbol: Symbol = symbol_table.getSymbol(self.name.toString().?)
+        const func_symbol: Symbol = symbol_table.getSymbol(self.name.asString().?)
             orelse return error.FunctionDefinitionNotFound;
 
         const function_def: FunctionDef = func_symbol.unwrapFunction() catch {
@@ -73,7 +73,7 @@ pub const FunctionCall = struct {
 
     fn implEvaluate(impl: *anyopaque, symbol_table: *SymbolTable) Error!Result {
         const self: *FunctionCall = @ptrCast(@alignCast(impl));
-        const function_sym: Symbol = symbol_table.getSymbol(self.name.toString().?)
+        const function_sym: Symbol = symbol_table.getSymbol(self.name.asString().?)
             orelse return Error.FunctionDefinitionNotFound;
 
         const function_def: FunctionDef = function_sym.unwrapFunction() catch {
@@ -89,7 +89,7 @@ pub const FunctionCall = struct {
 
         return function_def(symbol_table.current_scope.obj_ptr, args_list) catch |err| {
             std.log.err("Caught error while executing '{s}(...)': {any}-->\n{any}", .{
-                self.name.toString().?,
+                self.name.asString().?,
                 err,
                 @errorReturnTrace().?
             });
@@ -307,7 +307,7 @@ pub const ForLoop = struct {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putValue(self.identifier.toString().?, item);
+            try symbol_table.putValue(self.identifier.asString().?, item);
             for (self.statements) |inner_stmt| {
                 try inner_stmt.execute(symbol_table);
             }
@@ -321,7 +321,7 @@ pub const ForLoop = struct {
             try symbol_table.newScope();
             defer symbol_table.endScope();
 
-            try symbol_table.putValue(self.identifier.toString().?, Result{
+            try symbol_table.putValue(self.identifier.asString().?, Result{
                 .integer = .{
                     .value = @intCast(i)
                 }
@@ -445,7 +445,7 @@ pub const AssignmentStatement = struct {
         const self: *AssignmentStatement = @ptrCast(@alignCast(impl));
 
         const evaluated = try self.value.evaluate(symbol_table);
-        try symbol_table.putValue(self.identifier.toString().?, evaluated);
+        try symbol_table.putValue(self.identifier.asString().?, evaluated);
     }
 
     fn implDeinit(impl: *anyopaque) void {

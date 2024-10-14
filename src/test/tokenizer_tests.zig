@@ -375,7 +375,7 @@ test "tokenize real script" {
         try tokens[24].expectMatches(@tagName(.symbol));
 
         try tokens[25].expectMatches(@tagName(.eof));
-        try testing.expect(tokens[25].toString() == null);
+        try testing.expect(tokens[25].asString() == null);
     }
     {
         // with arena allocator

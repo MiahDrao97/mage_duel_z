@@ -50,21 +50,20 @@ pub const Parser = @This();
 
 allocator: Allocator,
 
-const ReferenceExpression = union(enum)
-{
+const ReferenceExpression = union(enum) {
     accessor: *AccessorExpression,
     identifier: *Identifier,
     function_call: *FunctionCall,
 
     pub fn expr(self: ReferenceExpression) Expression {
         switch (self) {
-            inline else => |x| return x.expr()
+            inline else => |x| return x.expr(),
         }
     }
 
     pub fn deinit(self: ReferenceExpression) void {
         switch (self) {
-            inline else => |x| x.deinit()
+            inline else => |x| x.deinit(),
         }
     }
 };
@@ -92,11 +91,10 @@ pub fn parseTokens(self: Parser, iter: TokenIterator) !*CardDef {
         } else if (next.stringEquals("[")) {
             const statement: *ActionDefinitionStatement = try self.parseActionDefinitionStatement(iter);
             errdefer statement.deinit();
-            
+
             try actions.append(statement);
         } else {
-            std.log.err("Unable to parse label or action definition statement with token: '{s}'",
-                .{ next.toString() orelse @tagName(next) });
+            std.log.err("Unable to parse label or action definition statement with token: '{s}'", .{next.asString() orelse @tagName(next)});
             return error.UnexpectedToken;
         }
     }
@@ -155,16 +153,15 @@ fn parseActionCostExpr(self: Parser, iter: TokenIterator) !*ActionCostExpression
             break;
         } else if (next_tok.getCrystalValue()) |c| {
             var crystal: u8 = @intFromEnum(c);
-            while (iter.nextMatchesSymbol(&[_][]const u8 { "|" })) |_| {
+            while (iter.nextMatchesSymbol(&[_][]const u8{"|"})) |_| {
                 if (iter.next()) |n| {
                     const next_c: Crystal = n.getCrystalValue() orelse return error.InvalidCrystalHybrid;
                     crystal |= @intFromEnum(next_c);
                 }
                 return error.EOF;
             }
-            var to_add: [1]u8 = [_]u8 { crystal };
-            try cc.add(&to_add);
-            if (iter.nextMatchesSymbol(&[_][]const u8 { "]" })) |_| {
+            try cc.add(&[_]u8{crystal});
+            if (iter.nextMatchesSymbol(&[_][]const u8{"]"})) |_| {
                 break;
             }
             _ = try iter.require("+");
@@ -188,7 +185,7 @@ fn parseActionCostExpr(self: Parser, iter: TokenIterator) !*ActionCostExpression
                     unreachable;
                 };
             }
-            if (iter.nextMatchesSymbol(&[_][]const u8 { "]" })) |_| {
+            if (iter.nextMatchesSymbol(&[_][]const u8{"]"})) |_| {
                 break;
             }
             _ = try iter.require("+");
@@ -304,18 +301,14 @@ fn parseIfStatement(self: Parser, iter: TokenIterator) !*IfStatement {
     const else_statements_slice: []Statement = try else_statements.toOwnedSlice();
     errdefer Statement.deinitAllAndFree(self.allocator, else_statements_slice);
 
-    return try IfStatement.new(
-        self.allocator,
-        condition,
-        true_statements_slice,
-        else_statements_slice);
+    return try IfStatement.new(self.allocator, condition, true_statements_slice, else_statements_slice);
 }
 
 fn parseForLoop(self: Parser, iter: TokenIterator) !*ForLoop {
     _ = try iter.require("for");
     _ = try iter.require("(");
 
-    const identifier: Token = try iter.requireType(&[_][]const u8 { @tagName(.identifier) });
+    const identifier: Token = try iter.requireType(&[_][]const u8{@tagName(.identifier)});
     _ = try iter.require("in");
 
     var range: Expression = try self.parseExpression(iter);
@@ -346,21 +339,17 @@ fn parseForLoop(self: Parser, iter: TokenIterator) !*ForLoop {
     const statements_slice: []Statement = try statements.toOwnedSlice();
     errdefer Statement.deinitAllAndFree(self.allocator, statements_slice);
 
-    return try ForLoop.new(
-        self.allocator,
-        identifier,
-        range,
-        statements_slice);
+    return try ForLoop.new(self.allocator, identifier, range, statements_slice);
 }
 
 fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     // assignment statment, damage statement, and function can all start with an identifier
     var dbg_tok: Token = iter.peek() orelse Token.eof;
-    std.log.debug("Beginning to parse non-control flow statment with next token: '{s}'", .{ dbg_tok.toString() orelse "<EOF>" });
+    std.log.debug("Beginning to parse non-control flow statment with next token: '{s}'", .{dbg_tok.asString() orelse "<EOF>"});
 
     if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
         // it all comes down to the next token...
-        const token: Token = iter.requireOneOf(&[_][]const u8 { "=>", "=" }) catch |err| {
+        const token: Token = iter.requireOneOf(&[_][]const u8{ "=>", "=" }) catch |err| {
             ref_expr.deinit();
             return err;
         };
@@ -394,13 +383,13 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
                     return assignment.stmt();
                 },
                 .function_call => |f| {
-                    std.log.err("Function call cannot be a valid left-hand side of an assignment statement (invoking '{s}(...)').", .{ f.name.toString().? });
+                    std.log.err("Function call cannot be a valid left-hand side of an assignment statement (invoking '{s}(...)').", .{f.name.asString().?});
                     return error.InvalidAssignment;
                 },
                 .accessor => |_| {
                     std.log.err("Currently, setters are not supported (setting properties on objects).", .{});
                     return error.InvalidAssignment;
-                }
+                },
             }
         }
         unreachable;
@@ -411,7 +400,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
         errdefer dmg_amount.deinit();
 
         // has to be a damage statement
-        if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "-" })) |op| {
+        if (iter.nextMatchesSymbol(&[_][]const u8{ "+", "-" })) |op| {
             // has to be an integer next
             const modifier: *IntegerLiteral = try IntegerLiteral.from(self.allocator, iter);
             errdefer modifier.deinit();
@@ -424,11 +413,11 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
             switch (err) {
                 error.UnexpectedToken => {
                     const next_tok: Token = iter.peek() orelse Token.eof;
-                    std.log.err("Cannot parse damage type from token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
+                    std.log.err("Cannot parse damage type from token '{s}'", .{next_tok.asString() orelse "<EOF>"});
                 },
                 else => {
                     std.log.err("Unexpected error while parsing damage type: '{s}', {?}", .{ @errorName(err), @errorReturnTrace() });
-                }
+                },
             }
             return err;
         };
@@ -473,7 +462,7 @@ fn parseNonControlFlowStatment(self: Parser, iter: TokenIterator) !Statement {
     }
 
     const next_tok: Token = iter.peek() orelse Token.eof;
-    std.log.err("Cannot parse statement beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
+    std.log.err("Cannot parse statement beginning with token '{s}'", .{next_tok.asString() orelse "<EOF>"});
     return error.UnexpectedToken;
 }
 
@@ -485,7 +474,7 @@ fn parseEqualityExpression(self: Parser, iter: TokenIterator) !Expression {
     var lhs: Expression = try self.parseBooleanExpression(iter);
     errdefer lhs.deinit();
 
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "==", "!=" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ "==", "!=" })) |sym| {
         var rhs: Expression = try self.parseBooleanExpression(iter);
         errdefer rhs.deinit();
 
@@ -499,7 +488,7 @@ fn parseBooleanExpression(self: Parser, iter: TokenIterator) !Expression {
     var lhs: Expression = try self.parseComparisonExpression(iter);
     errdefer lhs.deinit();
 
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "|", "^" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ "+", "|", "^" })) |sym| {
         var rhs: Expression = try self.parseComparisonExpression(iter);
         errdefer rhs.deinit();
 
@@ -513,7 +502,7 @@ fn parseComparisonExpression(self: Parser, iter: TokenIterator) !Expression {
     var lhs: Expression = try self.parseAdditiveExpression(iter);
     errdefer lhs.deinit();
 
-    if (iter.nextMatchesSymbol(&[_][]const u8 { ">", ">=", "<=", "<" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ ">", ">=", "<=", "<" })) |sym| {
         var rhs: Expression = try self.parseAdditiveExpression(iter);
         errdefer rhs.deinit();
 
@@ -527,7 +516,7 @@ fn parseAdditiveExpression(self: Parser, iter: TokenIterator) !Expression {
     var lhs: Expression = try self.parseFactorExpression(iter);
     errdefer lhs.deinit();
 
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "+", "+!", "-" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ "+", "+!", "-" })) |sym| {
         var rhs: Expression = try self.parseFactorExpression(iter);
         errdefer rhs.deinit();
 
@@ -541,7 +530,7 @@ fn parseFactorExpression(self: Parser, iter: TokenIterator) !Expression {
     var lhs: Expression = try self.parseUnaryExpression(iter);
     errdefer lhs.deinit();
 
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "*", "/" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ "*", "/" })) |sym| {
         var rhs: Expression = try self.parseUnaryExpression(iter);
         errdefer rhs.deinit();
 
@@ -552,7 +541,7 @@ fn parseFactorExpression(self: Parser, iter: TokenIterator) !Expression {
 }
 
 fn parseUnaryExpression(self: Parser, iter: TokenIterator) !Expression {
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "-", "~", "^" })) |sym| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{ "-", "~", "^" })) |sym| {
         var rhs: Expression = try self.parsePrimaryExpression(iter);
         errdefer rhs.deinit();
 
@@ -563,10 +552,10 @@ fn parseUnaryExpression(self: Parser, iter: TokenIterator) !Expression {
 }
 
 fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression {
-    if (iter.nextMatchesSymbol(&[_][]const u8 { "target" })) |_| {
+    if (iter.nextMatchesSymbol(&[_][]const u8{"target"})) |_| {
         const target_expr: *TargetExpression = try self.parseTargetExpression(iter, true);
         return target_expr.expr();
-    } else if (iter.nextMatchesSymbol(&[_][]const u8 { "(" })) |_| {
+    } else if (iter.nextMatchesSymbol(&[_][]const u8{"("})) |_| {
         var expr: Expression = try self.parseExpression(iter);
         errdefer expr.deinit();
 
@@ -574,7 +563,7 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression
 
         const paren_expr: ParenthesizedExpression = .{ .inner = expr };
         return paren_expr.expr();
-    } else if (iter.nextMatchesSymbol(&[_][] const u8 { "[" })) |_| {
+    } else if (iter.nextMatchesSymbol(&[_][]const u8{"["})) |_| {
         var list: ArrayList(Expression) = ArrayList(Expression).init(self.allocator);
         defer list.deinit();
         errdefer Expression.deinitAll(list.items);
@@ -605,30 +594,30 @@ fn parsePrimaryExpression(self: Parser, iter: TokenIterator) anyerror!Expression
 
         if (BooleanLiteral.from(self.allocator, iter)) |boolean| {
             return boolean.expr();
-        } else |_| { }
+        } else |_| {}
 
         if (DiceLiteral.from(self.allocator, iter)) |dice| {
             return dice.expr();
-        } else |_| { }
+        } else |_| {}
 
         if (DamageTypeLiteral.from(self.allocator, iter)) |damage_type| {
             return damage_type.expr();
-        } else |_| { }
+        } else |_| {}
 
         if (IntegerLiteral.from(self.allocator, iter)) |int| {
             return int.expr();
-        } else |_| { }
+        } else |_| {}
 
         if (LabelLiteral.from(self.allocator, iter)) |label| {
             return label.expr();
-        } else |_| { }
+        } else |_| {}
 
         if (try self.parseIdentifierOrAccessorChain(iter)) |ref_expr| {
             return ref_expr.expr();
         }
     }
     const next_tok: Token = iter.peek() orelse Token.eof;
-    std.log.err("Cannot parse expression beginning with token '{s}'", .{ next_tok.toString() orelse "<EOF>" });
+    std.log.err("Cannot parse expression beginning with token '{s}'", .{next_tok.asString() orelse "<EOF>"});
     return error.UnexpectedToken;
 }
 
@@ -644,7 +633,7 @@ fn parseTargetExpression(self: Parser, iter: TokenIterator, keyword_parsed: bool
     errdefer amount.deinit();
 
     _ = try iter.require("from");
-    
+
     var pool: Expression = try self.parseExpression(iter);
     errdefer pool.deinit();
 
@@ -690,16 +679,14 @@ fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Reference
     defer chain.deinit();
 
     while (Identifier.from(self.allocator, iter)) |identifier| {
-        if (iter.nextMatchesSymbol(&[_][]const u8 { ".", "(" })) |tok| {
+        if (iter.nextMatchesSymbol(&[_][]const u8{ ".", "(" })) |tok| {
             if (tok.stringEquals(".")) {
                 try chain.append(.{ .identifier = identifier });
                 continue;
             } else if (tok.stringEquals("(")) {
                 // function call
-                try chain.append(.{
-                    .function_call = try self.parseFunctionCall(identifier.name, iter)
-                });
-                if (iter.nextMatchesSymbol(&[_][]const u8 { "." })) |_| {
+                try chain.append(.{ .function_call = try self.parseFunctionCall(identifier.name, iter) });
+                if (iter.nextMatchesSymbol(&[_][]const u8{"."})) |_| {
                     continue;
                 } else {
                     break;
@@ -717,7 +704,7 @@ fn parseIdentifierOrAccessorChain(self: Parser, iter: TokenIterator) !?Reference
                 std.log.err("Out of memory while trying to parse identifier.", .{});
                 return err;
             },
-            else => { } // handles scrolling
+            else => {}, // handles scrolling
         }
     }
 
