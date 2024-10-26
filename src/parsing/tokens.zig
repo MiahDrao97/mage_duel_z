@@ -173,7 +173,7 @@ pub const DamageTypeToken = struct {
                 .allocator = allocator
             };
         }
-        return ParseTokenError.ParseDamageTypeError;        
+        return ParseTokenError.ParseDamageTypeError;
     }
 
     pub fn clone(self: DamageTypeToken) Allocator.Error!DamageTypeToken {
@@ -261,7 +261,7 @@ pub const DiceToken = struct {
     }
 
     pub fn getDice(self: DiceToken) Dice {
-        return Dice.new(self.sides) catch unreachable;
+        return Dice.init(self.sides) catch unreachable;
     }
 
     pub fn clone(self: DiceToken) Allocator.Error!DiceToken {

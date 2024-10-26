@@ -34,9 +34,7 @@ const MyStruct = struct {
 };
 
 fn get_my_struct(byte: u8) *const MyStruct {
-    return &.{
-        .value = byte
-    };
+    return &.{ .value = byte };
 }
 
 test "type equal" {

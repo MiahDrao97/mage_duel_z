@@ -1,5 +1,4 @@
 const std = @import("std");
-
 const imports = struct {
     usingnamespace @import("tokens.zig");
     usingnamespace @import("util");
@@ -408,6 +407,7 @@ pub const Label = union(enum) {
     // TODO: AOE
 
     const rank_values: []const u8 = "abcs";
+    // physical, spiritual, mental, cosmic
     const attack_attr_values: []const u8 = "psmc";
 
     pub fn from(label: []const u8, value: ?[]const u8) Error!Label {
@@ -431,7 +431,7 @@ pub const Label = union(enum) {
                 if (val.len == 1) {
                     if (std.mem.indexOf(u8, rank_values, &[_]u8 { std.ascii.toLower(val[0]) })) |i| {
                         return .{ .rank = rank_values[i] };
-                    }   
+                    }
                 }
                 return Error.InvalidLabelValue;
             }
@@ -698,7 +698,7 @@ pub const Expression = struct {
     pub fn deinit(self: Expression) void {
         self.deinit_fn(self.ptr);
     }
-    
+
     pub fn deinitAll(expressions: []Expression) void {
         for (expressions) |expr| {
             expr.deinit();

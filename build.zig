@@ -73,6 +73,23 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("parsing", parsing);
     exe.root_module.addImport("game_runtime", game_runtime);
 
+    const check_exe = b.addExecutable(.{
+        .name = "mage_duel_z",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    check_exe.root_module.addImport("util", util);
+    check_exe.root_module.addImport("game_zones", game_zones);
+    check_exe.root_module.addImport("parsing", parsing);
+    check_exe.root_module.addImport("game_runtime", game_runtime);
+
+    // These two lines you might want to copy
+    // (make sure to rename 'exe_check')
+    const check = b.step("check", "Check if foo compiles");
+    check.dependOn(&check_exe.step);
+
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).

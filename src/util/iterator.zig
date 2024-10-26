@@ -7,7 +7,7 @@ pub const Ordering = enum { asc, desc };
 pub const ComparerResult = enum {
     less_than,
     equal_to,
-    greater_than
+    greater_than,
 };
 
 /// Generic iterator interface for type `T`.
@@ -143,7 +143,7 @@ pub fn Iterator(comptime T: type) type {
                 if (self.i >= self.inner.len) {
                     return null;
                 }
-                
+
                 const item: T = self.inner[self.i];
                 self.i += 1;
 
@@ -400,7 +400,7 @@ pub fn Iterator(comptime T: type) type {
                 }
 
                 fn implScroll(_: *anyopaque, _: isize) void { }
-                
+
                 fn implHasIndexing(_: *anyopaque) bool { return false; }
 
                 fn implClone(impl: *anyopaque) Allocator.Error!Self {
@@ -569,7 +569,7 @@ pub fn Iterator(comptime T: type) type {
                 }
 
                 fn implSetIndex(_: *anyopaque, _: usize) void { }
-                
+
                 fn implHasIndexing(_: *anyopaque) bool { return false; }
 
                 fn implReset(impl: *anyopaque) void {

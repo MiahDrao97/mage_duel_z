@@ -42,7 +42,7 @@ pub const Dice = struct {
 
     /// Creates a Dice, where `sides` must be greater than 0 or it returns
     /// `error.OutOfRange`.
-    pub fn new(sides: u8) error{OutOfRange}!Dice {
+    pub fn init(sides: u8) error{OutOfRange}!Dice {
         if (sides < 1) {
             return error.OutOfRange;
         }
@@ -62,7 +62,13 @@ pub const CardType = union(enum) {
     sludge: void,
 };
 
-pub const SpellType = enum { rush, attack, utility, teleport, summon };
+pub const SpellType = enum {
+    rush,
+    attack,
+    utility,
+    teleport,
+    summon
+};
 
 pub const CardCost = struct {
     // [ opal|ruby|obsidian + opal + 3 ] = [ 145, 1, 255, 255, 255, 0 ... ]
