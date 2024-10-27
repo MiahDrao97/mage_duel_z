@@ -4,6 +4,7 @@ const Iterator = util.Iterator;
 const ComparerResult = util.ComparerResult;
 const Allocator = std.mem.Allocator;
 const Random = std.Random;
+const ArrayList = std.ArrayList;
 
 pub const types = @import("types.zig");
 
@@ -120,6 +121,18 @@ pub fn Deck(comptime T: type) type {
             errdefer combined.allocator.destroy(combined.ptr);
 
             self.elements = try combined.rebuild(self.on_deinit);
+        }
+    };
+}
+
+pub fn Discard(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        elements: ArrayList(T),
+
+        pub fn init(allocator: Allocator) Self {
+            return .{ .elements = ArrayList(T).init(allocator) };
         }
     };
 }

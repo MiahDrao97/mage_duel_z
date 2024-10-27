@@ -1,6 +1,10 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+pub const Error = error {
+    ReachedCapacity,
+};
+
 pub fn BufferStringBuilder(capacity: comptime_int) type {
     if (capacity < 1) {
         @compileError("Buffer size must be 1 or greater. Was: " ++ capacity);
@@ -12,17 +16,17 @@ pub fn BufferStringBuilder(capacity: comptime_int) type {
 
         const Self = @This();
 
-        pub fn append(self: *Self, char: u8) error{ReachedCapacity}!void {
+        pub fn append(self: *Self, char: u8) Error!void {
             if (self.idx >= capacity) {
-                return error.ReachedCapacity;
+                return Error.ReachedCapacity;
             }
             self.buf[self.idx] = char;
             self.idx += 1;
         }
 
-        pub fn appendStr(self: *Self, str: []const u8) error{ReachedCapacity}!void {
+        pub fn appendStr(self: *Self, str: []const u8) Error!void {
             if (self.idx + str.len > capacity) {
-                return error.ReachedCapacity;
+                return Error.ReachedCapacity;
             }
             if (str.len == 0) {
                 return;
@@ -31,9 +35,9 @@ pub fn BufferStringBuilder(capacity: comptime_int) type {
             self.idx += str.len;
         }
 
-        pub fn appendLine(self: *Self, str: []const u8) error{ReachedCapacity}!void {
+        pub fn appendLine(self: *Self, str: []const u8) Error!void {
             if (self.idx + str.len + 1 > capacity) {
-                return error.ReachedCapacity;
+                return Error.ReachedCapacity;
             }
             self.appendStr(str) catch unreachable;
             self.append('\n') catch unreachable;

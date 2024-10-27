@@ -1,12 +1,13 @@
 const import_tokens = @import("tokens.zig");
 const std = @import("std");
 const util = @import("util");
+
 const Iterator = util.Iterator;
 
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
-const Token = import_tokens.Token;
 
+const Token = import_tokens.Token;
 const StringToken = import_tokens.StringToken;
 const NumericToken = import_tokens.NumericToken;
 const DamageTypeToken = import_tokens.DamageTypeToken;
@@ -117,7 +118,7 @@ fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: Iterator(u8), next
             break;
         }
     }
-    
+
     const str: []u8 = try chars.toOwnedSlice();
     defer self.allocator.free(str);
 
@@ -125,12 +126,12 @@ fn parseAlphaNumericToken(self: Tokenizer, first: u8, tokens: Iterator(u8), next
         // static token (i.e. keyword)
         return .{ .symbol = try StringToken.from(self.allocator, str) };
     }
-    
+
     if (DamageTypeToken.from(self.allocator, str)) |dmg_type_token| {
         // damage type
         return .{ .damage_type = dmg_type_token };
     } else |_| { }
-    
+
     if (BooleanToken.from(self.allocator, str)) |bool_token| {
         // bool
         return .{ .boolean = bool_token };

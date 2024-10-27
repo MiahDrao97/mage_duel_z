@@ -39,7 +39,9 @@ fn implDraw(impl: ?*anyopaque, args: []ExpressionResult) !ExpressionResult {
                 std.debug.assert(impl != null);
                 const self: *GameModerator = @ptrCast(@alignCast(impl));
                 const card: Card = try self.card_factory.getCard(@intCast(id));
-                try self.activePlayer().draw(card);
+                self.activePlayer().draw(card) catch |err| {
+                    self.handleFailToDraw(self.activePlayer(), card, err);
+                };
                 return .void;
             }
             return error.SymbolNotFound;
@@ -57,6 +59,19 @@ fn implYou(impl: ?*anyopaque, _: []ExpressionResult) !ExpressionResult {
             .complex_object = try self.activePlayer().toScope()
         }
     };
+}
+
+fn handleFailToDraw(_: GameModerator, player: Player, card: Card, err: anyerror) void {
+    switch (err) {
+        error.AtCapacity => {
+            // TODO: put this in the discard pile
+            _ = try player.handleCapacity(card);
+        },
+        error.InvalidElement => {
+
+        },
+        else => unreachable
+    }
 }
 
 pub fn addGlobalFunctions(self: *GameModerator, scope: *Scope) !void {

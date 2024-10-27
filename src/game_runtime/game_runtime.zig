@@ -93,7 +93,7 @@ pub const Card = struct {
 pub const CardFactory = struct {
     allocator: Allocator,
 
-    pub fn getCard(_: u32) !Card {
+    pub fn getCard(_: CardFactory, _: u32) !Card {
         return error.NotImplemented;
     }
 };
@@ -107,7 +107,7 @@ pub const Player = struct {
     allocator: Allocator,
 
     const Self = @This();
-    
+
     const Zones = struct {
         hand: Zone(CardDef, 5),
         prepared_zone: Zone(CardDef, 5),
@@ -196,7 +196,7 @@ pub const Player = struct {
                     std.debug.assert(impl != null);
                     const self: *Self = @ptrCast(@alignCast(impl));
                     const card: Card = try self.card_factory.getCard(@bitCast(id));
-                    
+
                     try self.zones.prepared_zone.add(card);
                     return .void;
                 }
@@ -208,6 +208,14 @@ pub const Player = struct {
 
     pub fn draw(self: *Self, card: CardDef) !void {
         try self.zones.hand.add(card);
+    }
+
+    pub fn handleCapacity(self: *Self, card: Card) !Card {
+        // TODO: figure this out (we'll need the player interface to make a choice)
+        const removed: Card = try self.zones.hand.removeAtIndex(0);
+        // TODO: figure out how to handle bad input (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen (or better yet, don't even allow that to happen)))))))))
+        self.draw(card) catch unreachable;
+        return removed;
     }
 
     pub fn toScope(self: *Self) !*Scope {
@@ -228,7 +236,7 @@ pub const Player = struct {
         try as_scope.putFunc("addOrderPoints", &implAddOrderPoints);
         try as_scope.putFunc("heal", &implHeal);
         try as_scope.putFunc("takeDamage", &implTakeDamage);
-        
+
         return as_scope;
     }
 };
